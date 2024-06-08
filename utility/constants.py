@@ -73,9 +73,9 @@ FORMAT_AVALANCHE = "AVALANCHE"
 
 # CLIENT/SERVER MENU CONSTANTS
 CLIENT_MIN_MENU_ITEM_VALUE = 1
-CLIENT_MAX_MENU_ITEM_VALUE = 4
+CLIENT_MAX_MENU_ITEM_VALUE = 5
 SERVER_MIN_MENU_ITEM_VALUE = 1
-SERVER_MAX_MENU_ITEM_VALUE = 5
+SERVER_MAX_MENU_ITEM_VALUE = 4
 MENU_TITLE = "Menu Options"
 MENU_FIELD_OPTION = "Option"
 MENU_FIELD_DESC = "Command"
@@ -83,15 +83,15 @@ INPUT_PROMPT = "[+] Select a menu option: "
 CLIENT_MENU_OPTIONS_LIST = [
     ["1", "Connect to a Server"],
     ["2", "View Current Connection"],
-    ["3", "Cipher Playground"],
-    ["4", "Disconnect (Close Application)"]
+    ["3", "Select Cipher Mode"],
+    ["4", "Cipher Playground"],
+    ["5", "Disconnect (Close Application)"]
 ]
 SERVER_MENU_OPTIONS_LIST = [
     ["1", "Send Message to a Client"],
     ["2", "View Current Connections"],
-    ["3", "Select Cipher Mode"],
-    ["4", "Cipher Playground"],
-    ["5", "Disconnect (Close Application)"]
+    ["3", "Cipher Playground"],
+    ["4", "Disconnect (Close Application)"]
 ]
 SEND_MESSAGE_OPTION = ["1", "Send Message to Server"]
 USER_INPUT_START_MSG = "[+] User input (menu) thread has started!"

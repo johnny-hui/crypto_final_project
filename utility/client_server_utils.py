@@ -1,11 +1,14 @@
+import gc
 import ipaddress
 import pickle
 import secrets
 import socket
 import time
 from typing import TextIO
+
 from prettytable import PrettyTable
 from tinyec.ec import Inf
+
 from models.CustomCipher import CustomCipher
 from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, CLIENT_MENU_OPTIONS_LIST,
                                SEND_MESSAGE_OPTION, SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
@@ -249,14 +252,16 @@ def connect_to_server(self: object):
         self.is_connected = True
         self.server_socket = sock
 
-        # Receive cipher mode from server
-        mode = sock.recv(1024).decode()
-        print(f"[+] MODE RECEIVED: The encryption mode for this session is {mode.upper()}")
+        # Send cipher suite (mode) to the server
+        sock.send(self.cipher_mode.encode())
+        print(f"[+] MODE SELECTED: The encryption mode chosen for this session is {self.cipher_mode.upper()}")
 
-        # Receive IV from server (if CBC)
-        if mode == CBC:
-            iv = sock.recv(1024)
-            print(f"[+] IV RECEIVED: The initialization vector (IV) has been received from the server ({iv.hex()})")
+        # Generate and send client IV (if CBC)
+        if self.cipher_mode == CBC:
+            iv = secrets.token_bytes(BLOCK_SIZE)
+            time.sleep(0.5)
+            sock.send(iv)
+            print(f"[+] IV GENERATED: An initialization vector (IV) has been generated for this session ({iv.hex()})")
 
         # Send Public Key to Server
         serialized_key = pickle.dumps(self.pub_key)
@@ -274,16 +279,18 @@ def connect_to_server(self: object):
               f"session ({self.shared_secret}) | Number of Bytes = {len(shared_secret)}")
 
         # Derive CustomCipher Object (and save IV there)
-        if mode == CBC:
-            self.cipher = CustomCipher(key=shared_secret, mode=mode, iv=iv)
+        if self.cipher_mode == CBC:
+            self.cipher = CustomCipher(key=shared_secret, mode=self.cipher_mode, iv=iv)
         else:
-            self.cipher = CustomCipher(key=shared_secret, mode=mode)
+            self.cipher = CustomCipher(key=shared_secret, mode=self.cipher_mode)
 
         # Receive name of server
         self.server_name = decrypt(self.cipher, cipher_text=sock.recv(1024))
+        print(f"[+] RECEIVED SERVER NAME: The server's host name is {self.server_name}")
 
         # Send name to server
         sock.send(encrypt(self.cipher, self.name))
+        print("[+] CLIENT NAME SENT: Your host name has been successfully sent to server.")
 
         # Add socket to fd_list (for select() monitoring)
         self.fd_list.append(sock)
@@ -340,16 +347,14 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     client_socket, client_address = own_sock.accept()
     print(f"[+] NEW CONNECTION: Accepted a client connection from ({client_address[0]}, {client_address[1]})")
 
-    # Send cipher mode to the client
-    client_socket.send(self.cipher_mode.encode())
-    print(f"[+] MODE SELECTED: The encryption mode for this session is {self.cipher_mode.upper()}")
+    # Receive cipher mode from client
+    mode = client_socket.recv(1024).decode()
+    print(f"[+] MODE RECEIVED: The encryption mode selected by the client for this session is {mode.upper()}")
 
-    # Generate and send client IV (if CBC)
-    if self.cipher_mode == CBC:
-        client_iv = secrets.token_bytes(BLOCK_SIZE)
-        time.sleep(0.5)
-        client_socket.send(client_iv)
-        print(f"[+] IV GENERATED: An initialization vector (IV) has been generated for this client ({client_iv.hex()})")
+    # Receive IV from server (if CBC)
+    if mode == CBC:
+        client_iv = client_socket.recv(1024)
+        print(f"[+] IV RECEIVED: The initialization vector (IV) has been received from the client ({client_iv.hex()})")
 
     # Exchange public keys with the client
     client_pub_key = exchange_public_keys(self.pub_key, client_socket)
@@ -362,20 +367,22 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
           f"session ({compressed_shared_secret}) | Number of Bytes = {len(shared_secret)}")
 
     # Derive CustomCipher Object (according to mode)
-    if self.cipher_mode == CBC:
-        cipher = CustomCipher(key=shared_secret, mode=self.cipher_mode, iv=client_iv)
+    if mode == CBC:
+        cipher = CustomCipher(key=shared_secret, mode=mode, iv=client_iv)
     else:
-        cipher = CustomCipher(key=shared_secret, mode=self.cipher_mode)
+        cipher = CustomCipher(key=shared_secret, mode=mode)
 
     # Send information to the client using CustomCipher (in bytes)
     client_socket.send(encrypt(cipher, self.name))
+    print("[+] SERVER NAME SENT: Your host name has been successfully sent to the client.")
 
     # Receive name from the client (encrypted)
     name = decrypt(cipher, cipher_text=client_socket.recv(1024))
+    print(f"[+] RECEIVED CLIENT NAME: The client's host name is {name}")
 
     # Update client dictionary with the new client (include CustomCipher)
     self.fd_list.append(client_socket)
-    self.client_dict[client_address[0]] = [name, compressed_shared_secret, client_iv, self.cipher_mode, cipher]
+    self.client_dict[client_address[0]] = [name, compressed_shared_secret, client_iv, mode, cipher]
     print(f"[+] CONNECTION SUCCESS: A secure session with {name} has been established!")
 
 
@@ -437,6 +444,7 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             del self.client_dict[ip_address]
             self.fd_list.remove(sock)
             sock.close()
+            gc.collect()  # Perform garbage collect for any saved CustomCipher objects
 
     # Handler for Client
     else:
@@ -446,6 +454,8 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             print(f"[+] Received data from [{self.server_name}, {ip_address}] (decrypted): {plain_text}")
         else:
             print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
-            self.server_socket, self.server_name, self.shared_secret = None, None, None
+            del self.cipher
+            self.server_socket, self.server_name, self.shared_secret, self.cipher = None, None, None, None
             self.fd_list.remove(sock)
             sock.close()
+            gc.collect()
