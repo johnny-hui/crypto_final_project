@@ -4,10 +4,8 @@ import secrets
 import socket
 import time
 from typing import TextIO
-
 from prettytable import PrettyTable
 from tinyec.ec import Inf
-
 from models.CustomCipher import CustomCipher
 from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, CLIENT_MENU_OPTIONS_LIST,
                                SEND_MESSAGE_OPTION, SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
@@ -109,8 +107,8 @@ def view_current_connections(self: object, is_server: bool = False):
     # Fill table with data
     if is_server:
         if len(self.fd_list) > 1:
-            for ip, information in self.client_dict.items():  # Format: Name, IP, Mode, Shared Secret, IV
-                table.add_row([information[0], ip, information[3], information[1].hex(),
+            for ip, information in self.client_dict.items():  # Format: (Name, IP, Mode, Shared Secret, IV)
+                table.add_row([information[0], ip, information[3].upper(), information[1],
                                information[2].hex() if information[2] else None])
             print(table)
         else:
@@ -118,7 +116,7 @@ def view_current_connections(self: object, is_server: bool = False):
     else:
         if len(self.fd_list) > 0:
             table.add_row([self.server_name, self.server_socket.getpeername()[0],
-                           self.cipher.mode, self.shared_secret.hex(),
+                           self.cipher.mode.upper(), self.shared_secret,
                            self.cipher.iv.hex() if self.cipher.iv else None])
             print(table)
         else:

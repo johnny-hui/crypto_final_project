@@ -354,7 +354,7 @@ def change_main_key(UserViewModel: object, cipher: object):
                 print(f"[+] KEY CHANGED: The main key has been changed to -> '{cipher.key.hex()}'")
                 break
     if option == 2:
-        cipher.key = generate_shared_secret(cipher.block_size)
+        cipher.key = generate_shared_secret()
         print(f"[+] KEY CHANGED: The main key has been changed to -> '{cipher.key.hex()}'")
     print("[+] HINT: To generate sub-keys with this new main key, perform the 'Regenerate Sub-keys' command in menu")
 

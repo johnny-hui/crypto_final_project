@@ -58,8 +58,13 @@ def derive_shared_secret(pvt_key: int, pub_key):
     @return: shared_secret
         A SHA256-hashed result of the shared_key
     """
+    # EC point multiplication with private and public key
     shared_key = pvt_key * pub_key
+
+    # Use the X-coordinate of the shared key (point on an elliptic curve) and convert to bytes
     shared_key_bytes = shared_key.x.to_bytes((shared_key.x.bit_length() + 7) // 8, 'big')
+
+    # Compress the key by taking only the first 16-bytes of the SHA256 hash
     shared_key_hash = hashlib.sha256(shared_key_bytes).digest()
     return shared_key_hash[:BLOCK_SIZE]
 
@@ -100,7 +105,7 @@ def generate_keys(mode: str):
     return private_key, public_key
 
 
-def generate_shared_secret(block_size: int):
+def generate_shared_secret():
     """
     Generates a random shared secret key using ECDH key exchange
     and the 'brainpoolP256r1' elliptic curve.
@@ -110,21 +115,12 @@ def generate_shared_secret(block_size: int):
         main key and avalanche effect analysis SKAC in Cipher
         Playground)
 
-    @param block_size:
-        An integer representing the block size
-
     @return: hash_object[:block_size]
         A hash of the shared secret (according to a block size)
     """
     print("[+] GENERATING SHARED EC KEY: Now generating an elliptic curve shared key...")
     pvt_key_1, pub_key_1 = generate_keys(mode=MODE_PLAYGROUND)
     pvt_key_2, pub_key_2 = generate_keys(mode=MODE_PLAYGROUND)
-    shared_secret_point = derive_shared_secret(pvt_key_1, pub_key_2)
-
-    # Use the X-coordinate of the shared key (point on an elliptic curve) and convert to bytes
-    shared_secret_bytes = shared_secret_point.x.to_bytes((shared_secret_point.x.bit_length() + 7) // 8, 'big')
-
-    # Compress the key by taking only the first 16-bytes of the SHA256 hash
-    hash_object = hashlib.sha256(shared_secret_bytes).digest()
-    print(f"[+] OPERATION SUCCESSFUL: The shared secret is {hash_object[:block_size].hex()}")
-    return hash_object[:block_size]
+    shared_secret = derive_shared_secret(pvt_key_1, pub_key_2)
+    print(f"[+] OPERATION SUCCESSFUL: The shared secret is {shared_secret.hex()}")
+    return shared_secret
