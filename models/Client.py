@@ -96,7 +96,7 @@ class Client:
 
                     if command == 1:
                         if self.is_connected and self.server_socket is not None:
-                            send_message(self.server_socket, self.shared_secret, self.iv)
+                            send_message(self.server_socket, self.cipher)
                         else:
                             connect_to_server(self)
 

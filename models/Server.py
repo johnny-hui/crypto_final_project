@@ -99,17 +99,17 @@ class Server:
                     command = get_user_menu_option(fd, SERVER_MIN_MENU_ITEM_VALUE, SERVER_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
-                        client_sock, shared_secret, iv = self.__get_specific_client()
-                        send_message(client_sock, shared_secret, iv)
+                        client_sock, cipher = self.__get_specific_client()
+                        send_message(client_sock, cipher)
 
                     if command == 2:
                         view_current_connections(self, is_server=True)
 
                     if command == 3:
-                        self.__select_cipher_mode()
+                        self.__change_cipher_mode()
 
                     if command == 4:
-                        print("CIPHER PLAYGROUND")  # TODO: Integrate this into UserViewModel class -> Playground class??
+                        print("CIPHER PLAYGROUND")  # Integrate this into UserViewModel class -> Playground class??
 
                     if command == 5:
                         close_application(self)
@@ -119,12 +119,13 @@ class Server:
                 display_menu(is_server=True)
                 print(INPUT_PROMPT)
 
-    def __select_cipher_mode(self):
+    def __change_cipher_mode(self):
         """
         This function allows the server to change
         to a specific cipher mode.
         @return: None
         """
+        print(f"[+] CURRENT CIPHER MODE: {self.cipher_mode.upper()}")
         option = get_user_command_option(msg=CIPHER_MODE_PROMPT, opt_range=tuple(range(3)))
         if option == 0:
             return None
@@ -132,7 +133,7 @@ class Server:
             self.cipher_mode = CBC
         if option == 2:
             self.cipher_mode = ECB
-        print(f"[+] OPERATION SUCCESSFUL: The cipher mode has been changed to {self.cipher_mode}")
+        print(f"[+] OPERATION SUCCESSFUL: The cipher mode has been changed to {self.cipher_mode.upper()}")
 
     def __get_specific_client(self):
         """
@@ -157,13 +158,12 @@ class Server:
 
                     # Get information of the client (from dictionary)
                     ip, info = list(self.client_dict.items())[client_index - 1]
-                    shared_secret = info[1]
-                    iv = info[2]
+                    cipher = info[-1]
 
                     # Iterate over the list of sockets and find the corresponding one
                     for socket in self.fd_list[1:]:
                         if socket.getpeername()[0] == ip:
-                            return socket, shared_secret, iv
+                            return socket, cipher
 
                 except ValueError as e:
                     print(f"[+] ERROR: An invalid selection provided ({e}); please enter again.")

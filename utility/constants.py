@@ -98,7 +98,7 @@ USER_INPUT_START_MSG = "[+] User input (menu) thread has started!"
 USER_INPUT_THREAD_NAME = "user_input_menu_thread"
 USER_MENU_THREAD_TERMINATE = "[+] THREAD TERMINATION: User menu thread has been successfully terminated!"
 SELECT_ONE_SECOND_TIMEOUT = 1
-CIPHER_MODE_PROMPT = "[+] CHANGE CIPHER MODE: Enter 1 - CBC; Enter 2 - ECB; (or Enter 0 to quit)"
+CIPHER_MODE_PROMPT = "[+] CHANGE CIPHER MODE: Enter 1 - CBC; Enter 2 - ECB; (or Enter 0 to quit) "
 
 
 # USER MENU - REGENERATE SUBKEYS CONSTANTS

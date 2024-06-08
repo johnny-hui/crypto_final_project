@@ -268,7 +268,7 @@ def connect_to_server(self: object):
         print(f"[+] PUBLIC KEY RECEIVED: Successfully received the server's public key ({compress(server_pub_key)})")
 
         # Derive the shared secret (print in hex)
-        shared_secret = derive_shared_secret(self.pvt_key, server_pub_key)
+        shared_secret = derive_shared_secret(self.pvt_key, server_pub_key)  # In bytes
         self.shared_secret = shared_secret.hex()
         print(f"[+] KEY EXCHANGE SUCCESS: A shared secret has been derived for the current "
               f"session ({self.shared_secret}) | Number of Bytes = {len(shared_secret)}")
@@ -356,7 +356,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     print(f"[+] PUBLIC KEY RECEIVED: Successfully received the client's public key ({compress(client_pub_key)})")
 
     # Derive the shared secret and compress for AES
-    shared_secret = derive_shared_secret(self.pvt_key, client_pub_key)
+    shared_secret = derive_shared_secret(self.pvt_key, client_pub_key)  # In bytes
     compressed_shared_secret = shared_secret.hex()
     print(f"[+] KEY EXCHANGE SUCCESS: A shared secret has been derived for the current "
           f"session ({compressed_shared_secret}) | Number of Bytes = {len(shared_secret)}")
@@ -379,7 +379,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     print(f"[+] CONNECTION SUCCESS: A secure session with {name} has been established!")
 
 
-def send_message(sock: socket.socket, shared_secret: bytes, IV: bytes):
+def send_message(sock: socket.socket, cipher: CustomCipher):
     """
     Prompts user for a plaintext message, encrypts it
     and sends it to a target socket.
@@ -387,19 +387,15 @@ def send_message(sock: socket.socket, shared_secret: bytes, IV: bytes):
     @param sock:
         The target socket
 
-    @param shared_secret:
-        Bytes of the shared secret key
-
-    @param IV:
-        A randomly generated n-bytes for initialization vector (IV)
+    @param cipher:
+        A CustomCipher object
 
     @return: None
     """
     if sock is not None:
         ip = sock.getpeername()[0]
-        message = input(f"[+] Enter a message to send to ({ip}): ").encode()
-
-        cipher_text = encrypt(message, shared_secret, IV)
+        message = input(f"[+] Enter a message to send to ({ip}): ")
+        cipher_text = encrypt(cipher, message)
         sock.send(cipher_text)
 
         print("[+] Your message has been successfully sent!")
@@ -409,8 +405,11 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
     """
     Handles the receiving of data (or disconnections) from a socket.
 
+    @attention Client Info Format (for reference)
+        {IP: [name, shared_secret, IV, mode, cipher]}
+
     @param self:
-        A reference to the calling class object
+        A reference to the calling class object (Server or Client)
 
     @param sock:
         A socket object summoned by select() with
@@ -428,11 +427,11 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
 
     # Handler for Server
     if is_server:
-        client_info = self.client_dict[ip_address]  # => Get specific client secret {IP: [name, shared_secret, IV]}
+        client_info = self.client_dict[ip_address]  # => Get client info (only corresponding cipher)
         if data:
-            print(f"[+] Received data from [{client_info[0]}, {ip_address}] (encrypted): {data.hex()}")
-            plain_text = decrypt(data, client_info[1], client_info[2])
-            print(f"[+] Received data from [{client_info[0]}, {ip_address}] (decrypted): {plain_text.decode()}")
+            print(f"[+] Received data from [{client_info[0]}, {ip_address}] (encrypted): {data}")
+            plain_text = decrypt(cipher=client_info[-1], cipher_text=data)
+            print(f"[+] Received data from [{client_info[0]}, {ip_address}] (decrypted): {plain_text}")
         else:
             print(f"[+] Connection closed by ({client_info[0]}, {ip_address})")
             del self.client_dict[ip_address]
@@ -442,9 +441,9 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
     # Handler for Client
     else:
         if data:
-            print(f"[+] Received data from [{self.server_name}, {ip_address}] (encrypted): {data.hex()}")
-            plain_text = decrypt(data, self.shared_secret, self.iv)
-            print(f"[+] Received data from [{self.server_name}, {ip_address}] (decrypted): {plain_text.decode()}")
+            print(f"[+] Received data from [{self.server_name}, {ip_address}] (encrypted): {data}")
+            plain_text = decrypt(cipher=self.cipher, cipher_text=data)
+            print(f"[+] Received data from [{self.server_name}, {ip_address}] (decrypted): {plain_text}")
         else:
             print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
             self.server_socket, self.server_name, self.shared_secret = None, None, None
