@@ -1,6 +1,7 @@
 """
 Description:
-This Python file contains functions to generate data (graphs) and perform avalanche analysis.
+This Python file contains functions to generate data (graphs) and perform avalanche analysis
+and is exclusively used in 'Cipher Playground' menu option.
 
 """
 import os
@@ -10,8 +11,8 @@ from matplotlib import pyplot as plt
 from utility.constants import AVALANCHE_ANALYSIS_SPAC_PROMPT, AVALANCHE_ANALYSIS_USER_INPUT, ECB, \
     AVALANCHE_TASK_SKAC_TITLE, \
     AVALANCHE_TASK_SPAC_TITLE, AVALANCHE_ANALYSIS_SKAC_PROMPT, SAVE_GRAPH_DIR, GRAPH_LABEL_SPAC, GRAPH_LABEL_SKAC, \
-    AVALANCHE_ANALYSIS_USER_INPUT_KEY
-from utility.utilities import get_user_command_option
+    AVALANCHE_ANALYSIS_USER_INPUT_KEY, FORMAT_USER_INPUT, FORMAT_AVALANCHE
+from utility.cipher_utils import get_user_command_option, generate_shared_secret
 
 # CONSTANTS
 MAX_BIT_CHANGE = 10
@@ -30,19 +31,19 @@ def __print_experiment_info(control: list, experiment: list,
         print("=" * 80)
         print("Task:", AVALANCHE_TASK_SPAC_TITLE.format(exp_num + 1))
         print("Original Plaintext (in Binary):")
-        print(string_to_binary(control[0]))
+        print(bytes_to_binary(control[0]))
         print("Modified Plaintext (in Binary):")
-        print(string_to_binary(experiment[0]))
-        print(f"Plaintext: {experiment[0]}")
-        print(f"Key: {control[-1]}")  # => Key is appended as last element
+        print(bytes_to_binary(experiment[0]))
+        print(f"Plaintext: {experiment[0].decode('latin-1')}")
+        print(f"Key: {control[-1].hex()}")  # => Key is appended as last element
         print("=" * 80)
     else:
         print("=" * 80)
         print("Task:", AVALANCHE_TASK_SKAC_TITLE.format(exp_num + 1, NUMBER_DICT[exp_num + 1]))
-        print("Original Key (in Binary): ", string_to_binary(control[-1]))
-        print("Modified Key (in Binary): ", string_to_binary(experiment[-1]))
-        print("Plain Text:", control[0])
-        print("Key:", experiment[-1])
+        print("Original Key (in Binary): ", bytes_to_binary(control[-1]))
+        print("Modified Key (in Binary): ", bytes_to_binary(experiment[-1]))
+        print("Plain Text:", control[0].decode('latin-1'))
+        print("Key:", experiment[-1].hex())
         print("=" * 80)
 
 
@@ -106,19 +107,18 @@ def generate_random_string(block_size: int):
     return random_string
 
 
-def string_to_binary(input_string: str):
+def bytes_to_binary(byte_data: bytes):
     """
-    Converts each character of the input_string
-    to their 8-bit representation and concatenates
-    it to form a binary string.
+    Converts an array of bytes to a binary string
+    representation.
 
-    @param input_string:
-        A string of characters
+    @param byte_data:
+        An array of bytes to be converted to binary
 
     @return: binary_string
-        A string containing a binary sequence of bits
+        A string containing the binary sequence
     """
-    return ''.join(format(ord(char), '08b') for char in input_string)
+    return ''.join(format(byte, '08b') for byte in byte_data)
 
 
 def binary_to_string(binary_string: str):
@@ -142,6 +142,45 @@ def binary_to_string(binary_string: str):
     return ''.join(chars)
 
 
+def string_to_binary(input_string: str):
+    """
+    Converts each character of the input_string
+    to their 8-bit representation and concatenates
+    it to form a binary string.
+
+    @param input_string:
+        A string of characters
+
+    @return: binary_string
+        A string containing a binary sequence of bits
+    """
+    return ''.join(format(ord(char), '08b') for char in input_string)
+
+
+def binary_to_bytes(binary_string: str) -> bytes:
+    """
+    Converts a binary string to bytes.
+
+    @param binary_string:
+        A string of bits
+
+    @return: result_bytes
+        The bytes representation of the binary string
+    """
+    # Pad the binary string with zeros to make its length a multiple of 8
+    pad_length = (8 - len(binary_string) % 8) % 8
+    binary_string = binary_string + '0' * pad_length
+
+    # Convert the binary string to an integer
+    binary_integer = int(binary_string, 2)
+
+    # Convert the integer to bytes
+    num_bytes = len(binary_string) // 8
+    result_bytes = binary_integer.to_bytes(num_bytes, byteorder='big')
+
+    return result_bytes
+
+
 def calculate_bit_differences(string_1: str, string_2: str):
     """
     Takes two strings, converts them into binary,
@@ -156,12 +195,8 @@ def calculate_bit_differences(string_1: str, string_2: str):
     @return bit_difference:
         The bit difference between the input two strings (int)
     """
-    # Convert both strings into their binary representations
-    b1 = string_to_binary(string_1)
-    b2 = string_to_binary(string_2)
-
     # Iterate and sum the differing bits
-    bit_difference = sum(b1[i] != b2[i] for i in range(len(b1)))
+    bit_difference = sum(string_1[bit] != string_2[bit] for bit in range(len(string_1)))
     return bit_difference
 
 
@@ -197,10 +232,10 @@ def get_avalanche_user_input(block_size: int, input_type: str):
         A string containing the user's plaintext message
     """
     while True:
-        if input_type == 'plaintext':
-            user_input = input(AVALANCHE_ANALYSIS_USER_INPUT)
-        else:
-            user_input = input(AVALANCHE_ANALYSIS_USER_INPUT_KEY)
+        if input_type == 'plaintext':  # => For SPAC
+            user_input = input(AVALANCHE_ANALYSIS_USER_INPUT.format(block_size))
+        else:  # => For SKAC
+            user_input = input(AVALANCHE_ANALYSIS_USER_INPUT_KEY.format(block_size))
 
         if len(user_input) == block_size:
             return user_input
@@ -274,7 +309,8 @@ def _perform_experiments(experiments: list, criteria: str,
                          plaintext: str = None):
     """
     Performs bit change experiments on the plaintext
-    (SPAC) or key (SKAC) for avalanche effect analysis.
+    (SPAC) or key (SKAC) and gathers data for avalanche
+    effect analysis.
 
     @param experiments:
         A list containing experimental group data
@@ -294,19 +330,19 @@ def _perform_experiments(experiments: list, criteria: str,
 
     @return: None
     """
+    print(f"[+] Now performing experiments for {criteria}...")
     if criteria == 'SPAC':  # => Key stays constant
         for i in range(MAX_BIT_CHANGE):
-            new_plaintext_binary = flip_bits_from_msb(binary_payload, num_bits=i + 1)
-            new_plaintext = binary_to_string(new_plaintext_binary)
-            experiments.append(cipher.encrypt(new_plaintext, verbose=True))
+            transformed_plaintext_binary = flip_bits_from_msb(binary_payload, num_bits=i+1)
+            experiments.append(cipher.encrypt(binary_to_bytes(transformed_plaintext_binary),
+                                              format=FORMAT_AVALANCHE, verbose=True))
 
     if criteria == 'SKAC':  # => Plaintext stays constant
         for i in range(MAX_BIT_CHANGE):
-            new_key_binary = flip_every_4th_bit(binary_payload, num_bits=i + 1)
-            new_key = binary_to_string(new_key_binary)
-            cipher.key = new_key
+            new_key_binary = flip_every_4th_bit(binary_payload, num_bits=i+1)
+            cipher.key = binary_to_bytes(new_key_binary)
             cipher.process_subkey_generation(menu_option=1)
-            experiments.append(cipher.encrypt(plaintext, verbose=True))
+            experiments.append(cipher.encrypt(plaintext.encode(), format=FORMAT_AVALANCHE, verbose=True))
 
 
 def _analyze_experiments(experiments: list, control: list, criteria: string):
@@ -341,33 +377,32 @@ def _analyze_experiments(experiments: list, control: list, criteria: string):
         final_index = len(sliced_control) - 1
 
         # Iterate through the rounds for an experiment (and perform bit difference)
-        for round_num, (control_cipher, exp_cipher) in enumerate(zip(sliced_control, sliced_experiment)):
+        for round_num, (control_data, exp_data) in enumerate(zip(sliced_control, sliced_experiment)):
+
+            # Get Original/Experiment Intermediate Ciphertexts (convert to binary)
+            control_binary = bytes_to_binary(control_data)
+            exp_binary = bytes_to_binary(exp_data)
+
             if round_num == final_index:
-                print("Final Ciphertext (Original):   {}".format(string_to_binary(control_cipher)))
-                print("Final Ciphertext (Experiment): {}".format(string_to_binary(exp_cipher)))
-                bit_diff = calculate_bit_differences(control_cipher, exp_cipher)
+                print("Final Ciphertext (Original):   {}".format(control_binary))
+                print("Final Ciphertext (Experiment): {}".format(exp_binary))
+                bit_diff = calculate_bit_differences(control_binary, exp_binary)
                 print(f"Bit difference: {bit_diff}")
             else:
                 print("[+] Round {} Bit Difference".format(round_num + 1))
 
-                # Get Original/Experiment Intermediate Ciphertexts (convert to binary)
-                control_round_ciphertext = control_cipher
-                exp_round_ciphertext = exp_cipher
-                control_round_ciphertext_binary = string_to_binary(control_round_ciphertext)
-                exp_round_ciphertext_binary = string_to_binary(exp_round_ciphertext)
-
                 # Print the intermediate ciphertexts (in binary)
                 print("\tOriginal Intermediate Ciphertext:")
-                print(f"\t{control_round_ciphertext_binary}")
+                print(f"\t{control_binary}")
                 print("\tModified Intermediate Ciphertext:")
-                print(f"\t{exp_round_ciphertext_binary}")
+                print(f"\t{exp_binary}")
 
                 # Calculate Round Bit Differences
-                bit_diff = calculate_bit_differences(control_round_ciphertext_binary, exp_round_ciphertext_binary)
+                bit_diff = calculate_bit_differences(control_binary, exp_binary)
                 print(f"\tNumber of bit differences: {bit_diff}\n")
 
                 # Save round results
-                experiment_results.append([(round_num + 1), control_round_ciphertext, exp_round_ciphertext, bit_diff])
+                experiment_results.append([(round_num + 1), control_binary, exp_binary, bit_diff])
 
         # Save experiment results
         results[f"Experiment {i + 1}"] = experiment_results
@@ -402,13 +437,11 @@ def _perform_avalanche_spac(UserViewModel: object, criteria: str, option: int,
 
     if option == 1:  # Input own string
         plaintext = get_avalanche_user_input(cipher.block_size, input_type='plaintext')
-        plaintext_binary = string_to_binary(plaintext)
         print(f"[+] Now performing avalanche analysis ({criteria}) on the following plaintext -> {plaintext}")
 
     # Option 2 - Generate random plaintext string
     else:
         plaintext = generate_random_string(cipher.block_size)
-        plaintext_binary = string_to_binary(plaintext)
         print(f"[+] Now performing avalanche analysis ({criteria}) with generated plaintext -> {plaintext}")
 
     # Save state since cipher changes to ECB mode
@@ -419,9 +452,10 @@ def _perform_avalanche_spac(UserViewModel: object, criteria: str, option: int,
     cipher.mode = ECB
 
     # Gather data for the control group (no bit changes applied)
-    control = cipher.encrypt(plaintext, verbose=True)
+    control = cipher.encrypt(plaintext, format=FORMAT_USER_INPUT, verbose=True)
 
     # Gather data for the experimental group (bit changes in the plaintext)
+    plaintext_binary = bytes_to_binary(plaintext.encode())
     _perform_experiments(experimental_group, criteria, cipher, binary_payload=plaintext_binary)
 
     # Analyze the experiment data and generate graph
@@ -459,15 +493,17 @@ def _perform_avalanche_skac(UserViewModel: object, criteria: str, option: int,
         return None
 
     if option == 1:  # Input own key
-        key = get_avalanche_user_input(cipher.block_size, input_type="key")
+        key = get_avalanche_user_input(cipher.block_size, input_type="key").encode()  # Encode to bytes
         plaintext = get_avalanche_user_input(cipher.block_size, input_type="plaintext")
-        print(f"[+] Now performing avalanche analysis ({criteria}) with the following initial key -> {key}")
+        print(f"[+] Now performing avalanche analysis ({criteria}) with the following initial key and "
+              f"plain-text -> {key.hex()}, {plaintext}")
 
-    # Option 2 - Generate key
+    # Option 2 - Generate a shared secret key (from elliptic curve 'brainpoolP256r1')
     else:
-        key = generate_random_string(cipher.block_size)
+        key = generate_shared_secret(cipher.block_size)
         plaintext = generate_random_string(cipher.block_size)
-        print(f"[+] Now performing avalanche analysis ({criteria}) with the generated key -> {key}")
+        print(f"[+] Now performing avalanche analysis ({criteria}) with the generated EC key and "
+              f"plain-text -> {key.hex()}, {plaintext}")
 
     # Save cipher state since key & sub-keys change
     UserViewModel.save_cipher_state()
@@ -484,7 +520,7 @@ def _perform_avalanche_skac(UserViewModel: object, criteria: str, option: int,
     control = cipher.encrypt(plaintext, verbose=True)
 
     # Convert key to binary and gather data for bit changes in the plaintext
-    key_binary = string_to_binary(key)
+    key_binary = bytes_to_binary(key)
     _perform_experiments(experimental_group, criteria, cipher,
                          binary_payload=key_binary, plaintext=plaintext)
 

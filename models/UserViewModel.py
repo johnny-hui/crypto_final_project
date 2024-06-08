@@ -4,8 +4,8 @@ import sys
 from models.CustomCipher import CustomCipher
 from utility.avalanche import analyze_avalanche_effect
 from utility.constants import USER_INPUT_PROMPT, USER_MENU_TITLE, USER_MENU_COLUMNS, \
-    MIN_MENU_ITEM_VALUE, MAX_MENU_ITEM_VALUE, USER_MENU_OPTIONS_LIST
-from utility.utilities import get_user_menu_option, make_table, change_mode, change_main_key, regenerate_sub_keys, \
+    PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE, USER_MENU_OPTIONS_LIST
+from utility.cipher_utils import get_user_menu_option, make_table, change_mode, change_main_key, regenerate_sub_keys, \
     encrypt, view_pending_operations, decrypt, print_config
 
 
@@ -20,8 +20,11 @@ class UserViewModel:
         cipher_state - A list to store the cipher state (used for avalanche analysis (SKAC) key changes)
     """
     def __init__(self, *args):
+        """
+        A constructor for the UserViewModel class object.
+        """
         self.table = make_table(USER_MENU_TITLE, USER_MENU_COLUMNS, USER_MENU_OPTIONS_LIST)
-        self.cipher = CustomCipher(key=args[0], mode=args[1], subkey_flag=args[2])
+        self.cipher = CustomCipher(key=args[0], mode=args[1], iv=args[2])
         self.terminate = False
         self.pending_operations = {}  # Format => {Encrypted_Format: (mode, cipher_text/path_to_file, IV)}
         self.cipher_state = []
@@ -51,7 +54,7 @@ class UserViewModel:
             # Get User Command from the Menu and perform the task
             for fd in readable:
                 if fd == sys.stdin:
-                    command = get_user_menu_option(fd, MIN_MENU_ITEM_VALUE, MAX_MENU_ITEM_VALUE)
+                    command = get_user_menu_option(fd, PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
                         encrypt(self, self.cipher)
