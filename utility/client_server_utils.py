@@ -13,7 +13,7 @@ from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, C
                                MAX_PORT_VALUE, CONNECTION_INFO_FIELD_NAME, CONNECTION_INFO_FIELD_IP,
                                CONNECTION_INFO_FIELD_SECRET, CONNECTION_INFO_FIELD_IV, CONNECTION_INFO_TITLE, CBC,
                                BLOCK_SIZE, CONNECTION_INFO_FIELD_CIPHER_MODE)
-from utility.ec_keys_utils import derive_shared_secret
+from utility.ec_keys_utils import derive_shared_secret, compress
 
 
 def encrypt(cipher: CustomCipher, plain_text: str):
@@ -248,7 +248,6 @@ def connect_to_server(self: object):
         # Bind class attributes
         self.is_connected = True
         self.server_socket = sock
-        self.fd_list.append(sock)
 
         # Receive cipher mode from server
         mode = sock.recv(1024).decode()
@@ -266,6 +265,7 @@ def connect_to_server(self: object):
         # Receive Public Key from Server
         serialized_server_pub_key = sock.recv(4096)
         server_pub_key = pickle.loads(serialized_server_pub_key)
+        print(f"[+] PUBLIC KEY RECEIVED: Successfully received the server's public key ({compress(server_pub_key)})")
 
         # Derive the shared secret (print in hex)
         shared_secret = derive_shared_secret(self.pvt_key, server_pub_key)
@@ -284,6 +284,9 @@ def connect_to_server(self: object):
 
         # Send name to server
         sock.send(encrypt(self.cipher, self.name))
+
+        # Add socket to fd_list (for select() monitoring)
+        self.fd_list.append(sock)
         print(f"[+] CONNECTION SUCCESS: A secure session with {self.server_name} has been established!")
     except socket.error as e:
         print(f"[+] CONNECTION FAILED: Failed to connect to target server ({e}); please try again.")
@@ -339,6 +342,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
 
     # Send cipher mode to the client
     client_socket.send(self.cipher_mode.encode())
+    print(f"[+] MODE SELECTED: The encryption mode for this session is {self.cipher_mode.upper()}")
 
     # Generate and send client IV (if CBC)
     if self.cipher_mode == CBC:
@@ -348,8 +352,8 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
         print(f"[+] IV GENERATED: An initialization vector (IV) has been generated for this client ({client_iv.hex()})")
 
     # Exchange public keys with the client
-    self.fd_list.append(client_socket)
     client_pub_key = exchange_public_keys(self.pub_key, client_socket)
+    print(f"[+] PUBLIC KEY RECEIVED: Successfully received the client's public key ({compress(client_pub_key)})")
 
     # Derive the shared secret and compress for AES
     shared_secret = derive_shared_secret(self.pvt_key, client_pub_key)
@@ -370,6 +374,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     name = decrypt(cipher, cipher_text=client_socket.recv(1024))
 
     # Update client dictionary with the new client (include CustomCipher)
+    self.fd_list.append(client_socket)
     self.client_dict[client_address[0]] = [name, compressed_shared_secret, client_iv, self.cipher_mode, cipher]
     print(f"[+] CONNECTION SUCCESS: A secure session with {name} has been established!")
 
@@ -408,7 +413,8 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
         A reference to the calling class object
 
     @param sock:
-        A socket object
+        A socket object summoned by select() with
+        incoming data
 
     @param is_server:
         A boolean to determine if calling class is a

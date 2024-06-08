@@ -23,6 +23,7 @@ class CustomCipher:
         """
         A constructor for a CustomCipher class object.
         """
+        print('=' * 160)
         print(CIPHER_INIT_MSG)
         self.mode = mode
         self.rounds = ROUNDS
@@ -32,6 +33,7 @@ class CustomCipher:
         self.sub_keys = []
         self.__generate_subkeys()
         print(INIT_SUCCESS_MSG)
+        print('=' * 160)
 
     def round_function(self, right_block: bytes, key: bytes):
         """
@@ -221,6 +223,7 @@ class CustomCipher:
 
         @return: None
         """
+        print("[+] SUBKEY GENERATION: Now processing sub-keys...")
         print(f"[+] Generating sub-keys from the following main key: {self.key.hex()}")
 
         # Ensure the main key is of sufficient size
@@ -237,8 +240,6 @@ class CustomCipher:
             subkey = bytes([byte ^ (i + 1) for byte in subkey])
             self.sub_keys.append(subkey)
             print(f"[+] Round {i + 1}: {subkey.hex()}")
-
-        print("[+] SUBKEY GENERATION: Now processing sub-keys...")
 
     def process_subkey_generation(self, menu_option=None):
         """

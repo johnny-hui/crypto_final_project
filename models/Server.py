@@ -1,12 +1,14 @@
 import select
 import sys
 import threading
+
 from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import accept_new_connection_handler, display_menu, receive_data, get_user_menu_option, \
     close_application, view_current_connections, send_message
 from utility.constants import INIT_SERVER_MSG, INIT_SUCCESS_MSG, MODE_SERVER, INPUT_PROMPT, USER_INPUT_THREAD_NAME, \
-    USER_INPUT_START_MSG, PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE, USER_MENU_THREAD_TERMINATE, \
-    SELECT_ONE_SECOND_TIMEOUT, SERVER_SELECT_CLIENT_PROMPT, CBC, CIPHER_MODE_PROMPT, ECB
+    USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, \
+    SELECT_ONE_SECOND_TIMEOUT, SERVER_SELECT_CLIENT_PROMPT, CBC, CIPHER_MODE_PROMPT, ECB, SERVER_MAX_MENU_ITEM_VALUE, \
+    SERVER_MIN_MENU_ITEM_VALUE
 from utility.ec_keys_utils import generate_keys
 from utility.init import parse_arguments, initialize_socket
 
@@ -59,6 +61,8 @@ class Server:
             for sock in readable:
                 if sock is self.own_socket:
                     accept_new_connection_handler(self, sock)
+                    display_menu(is_server=True)
+                    print(INPUT_PROMPT)
                     # TODO: Print out the public keys when exchanging
                 else:
                     receive_data(self, sock, is_server=True)
@@ -92,7 +96,7 @@ class Server:
             # Get User Command from the Menu and perform the task
             for fd in readable:
                 if fd == sys.stdin:
-                    command = get_user_menu_option(fd, PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE)
+                    command = get_user_menu_option(fd, SERVER_MIN_MENU_ITEM_VALUE, SERVER_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
                         client_sock, shared_secret, iv = self.__get_specific_client()
@@ -105,7 +109,7 @@ class Server:
                         self.__select_cipher_mode()
 
                     if command == 4:
-                        print("CIPHER PLAYGROUND")
+                        print("CIPHER PLAYGROUND")  # TODO: Integrate this into UserViewModel class -> Playground class??
 
                     if command == 5:
                         close_application(self)

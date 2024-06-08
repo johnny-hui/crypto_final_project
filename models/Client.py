@@ -5,7 +5,8 @@ from utility.client_server_utils import (display_menu, get_user_menu_option, sen
                                          receive_data, view_current_connections, close_application)
 from utility.constants import (INPUT_PROMPT, PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE,
                                INIT_CLIENT_MSG, INIT_SUCCESS_MSG, MODE_CLIENT, USER_INPUT_THREAD_NAME,
-                               USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, SELECT_ONE_SECOND_TIMEOUT)
+                               USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, SELECT_ONE_SECOND_TIMEOUT,
+                               CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE)
 from utility.ec_keys_utils import generate_keys
 from utility.init import parse_arguments
 
@@ -91,7 +92,7 @@ class Client:
             # Get User Command from the Menu and perform the task
             for fd in readable:
                 if fd == sys.stdin:
-                    command = get_user_menu_option(fd, PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE)
+                    command = get_user_menu_option(fd, CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
                         if self.is_connected and self.server_socket is not None:
@@ -103,6 +104,9 @@ class Client:
                         view_current_connections(self)
 
                     if command == 3:
+                        print("CIPHER PLAYGROUND")
+
+                    if command == 4:
                         close_application(self)
                         print(USER_MENU_THREAD_TERMINATE)
                         return None
