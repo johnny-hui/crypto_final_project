@@ -1,7 +1,7 @@
 import select
 import sys
 import threading
-
+from models.CipherPlayground import CipherPlayground
 from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import (display_menu, get_user_menu_option, send_message, connect_to_server,
                                          receive_data, view_current_connections, close_application)
@@ -110,7 +110,7 @@ class Client:
                         self.__change_cipher_mode()
 
                     if command == 4:
-                        print("CIPHER PLAYGROUND")
+                        CipherPlayground().start()
 
                     if command == 5:
                         close_application(self)

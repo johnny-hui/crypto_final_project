@@ -25,8 +25,8 @@ CIPHER_INIT_SUCCESS_MSG = "[+] The cipher has been successfully initialized!"
 CIPHER_INIT_CONFIG_TITLE = "Cipher Settings"
 CIPHER_INIT_CONFIG_COLUMNS = ["Setting", "Value"]
 CIPHER_INIT_CONFIG_ATTRIBUTES = [
-    "Mode", "Number of Rounds", "Block Size (bytes)", "Main Key",
-    "Subkey Generation", "Initialization Vector(IV)", "Sub-keys"
+    "Mode", "Number of Rounds", "Block Size (bytes)",
+    "Main Key", "Initialization Vector(IV)", "Sub-keys"
 ]
 GET_SUBKEY_USER_PROMPT = "[+] Enter 1 (to provide own sub-keys); Enter 2 (to use default sub-keys)"
 
@@ -46,7 +46,7 @@ MODE_PLAYGROUND = "PLAYGROUND"
 # CIPHER PLAYGROUND CONSTANTS
 PLAYGROUND_MIN_MENU_ITEM_VALUE = 1
 PLAYGROUND_MAX_MENU_ITEM_VALUE = 9
-USER_MENU_TITLE = "Menu Options"
+USER_MENU_TITLE = "CIPHER PLAYGROUND MENU"
 USER_MENU_COLUMNS = ["Option", "Command"]
 USER_MENU_OPTIONS_LIST = [
     ["1", "Perform Encryption"],
@@ -57,7 +57,7 @@ USER_MENU_OPTIONS_LIST = [
     ["6", "Regenerate Sub-keys"],
     ["7", "View Cipher Settings"],
     ["8", "View Pending Operations"],
-    ["9", "Close Application"],
+    ["9", "Return to Main Menu"],
 ]
 USER_INPUT_PROMPT = "[+] Select a menu option: "
 INVALID_MENU_SELECTION = "[+] MENU SELECTION: Please enter a valid menu option ({} to {}): "

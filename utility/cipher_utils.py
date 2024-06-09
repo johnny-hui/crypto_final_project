@@ -1,7 +1,7 @@
 """
 Description:
 This Python file contains utility functions used by CustomCipher and
-UserViewModel (user menu) classes.
+CipherPlayground classes.
 
 """
 import os
@@ -273,7 +273,7 @@ def make_table(title: str, columns: list[str], content: list):
     return table
 
 
-# USER MENU FUNCTIONS
+# ============================== CIPHER PLAYGROUND FUNCTIONS ==============================
 def get_user_menu_option(fd: TextIO, min_num_options: int, max_num_options: int):
     """
     Gets the user selection for the menu.
@@ -308,7 +308,7 @@ def change_mode(cipher: object):
     Toggles a change to the CustomCipher's mode.
 
     @attention: Use Case
-        This function is called by UserViewModel class
+        This function is called by CipherPlayground class
 
     @param cipher:
         A CustomCipher object
@@ -322,23 +322,23 @@ def change_mode(cipher: object):
     print(f"[+] MODE CHANGED TO -> {cipher.mode.upper()}")
 
 
-def change_main_key(UserViewModel: object, cipher: object):
+def change_main_key(CipherPlayground: object, cipher: object):
     """
     Prompts the user for a new main key for
     the CustomCipher and replaces the old key.
 
-    @attention: Use Case
-        This function is called by UserViewModel class
+    @attention Use Case:
+        This function is only called by the CipherPlayground class
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
 
     @return: None
     """
-    if len(UserViewModel.pending_operations) > 0:
+    if len(CipherPlayground.pending_operations) > 0:
         print("[+] CHANGE KEY ERROR: Cannot change main key since there are pending decryption operations!")
         return None
 
@@ -404,9 +404,9 @@ def print_config(self: object):
             print(f"[+] {CIPHER_INIT_CONFIG_ATTRIBUTES[index]}: {value.upper()}")
         elif index == 3:  # 3 == Main Key
             print(f"[+] {CIPHER_INIT_CONFIG_ATTRIBUTES[index]}: {value.hex()}")
-        elif index == 5:  # 5 == IV
+        elif index == 4:  # 5 == IV
             print(f"[+] {CIPHER_INIT_CONFIG_ATTRIBUTES[index]}: {value.hex() if value else value}")
-        elif index == 6:  # 6 == Sub-keys
+        elif index == 5:  # 6 == Sub-keys
             subkeys = [subkey.hex() if isinstance(subkey, bytes) else subkey for subkey in value]
             print_subkeys(subkeys, columns=4)
         else:
@@ -414,23 +414,23 @@ def print_config(self: object):
         index += 1
 
 
-def regenerate_sub_keys(UserViewModel: object, cipher: object):
+def regenerate_sub_keys(CipherPlayground: object, cipher: object):
     """
     Regenerates sub-keys by using either the main key,
     default sub-keys, or user-provided sub-keys.
 
-    @attention: Use Case
-        This function is called by UserViewModel class
+    @attention Use Case:
+        This function is only called by the CipherPlayground class
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
 
     @return: None
     """
-    if len(UserViewModel.pending_operations) > 0:
+    if len(CipherPlayground.pending_operations) > 0:
         print("[+] CHANGE KEY ERROR: Cannot change main key because there are pending decryption operations!")
         return None
 
@@ -452,28 +452,28 @@ def regenerate_sub_keys(UserViewModel: object, cipher: object):
             print(f"[+] Invalid option selected; please try again! ({e})")
 
 
-def view_pending_operations(UserViewModel: object):
+def view_pending_operations(CipherPlayground: object):
     """
     Prints the pending decryption operations that
     are available to the user.
 
     @attention Use Case:
-        This function is only called by the UserViewModel class
+        This function is only called by the CipherPlayground class
 
     @attention Removal of Bytes in Ciphertext
         This does not affect the original ciphertext saved, as this is
         performed to make the ciphertext more presentable to the user.
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @return: None
     """
-    if len(UserViewModel.pending_operations) == 0:
+    if len(CipherPlayground.pending_operations) == 0:
         print("[+] VIEW PENDING OPERATIONS: There are currently no pending operations!")
     else:
         content_list = []
-        for key, (mode, ciphertext, iv) in UserViewModel.pending_operations.items():
+        for key, (mode, ciphertext, iv) in CipherPlayground.pending_operations.items():
             content_list.append([key, mode, ciphertext, iv.hex() if iv else iv])
         print(make_table(title=PENDING_OP_TITLE, columns=PENDING_OP_COLUMNS, content=content_list))
 
@@ -483,7 +483,7 @@ def print_options(options: list):
     Prints a list of options for the user.
 
     @attention Use Case:
-        This function is only called by the UserViewModel class
+        This function is only called by the CipherPlayground class
 
     @param options:
         A list of options
@@ -643,16 +643,16 @@ def modify_save_path(file_path: str, tag: str, mode: str, format: str):
     return new_save_path
 
 
-def save_to_pending_operations(UserViewModel: object, cipher: object, format: str, payload: str):
+def save_to_pending_operations(CipherPlayground: object, cipher: object, format: str, payload: str):
     """
     Saves the cipher parameters from a single encrypted operation
     for future decryption operation.
 
     @attention Use Case:
-        This function is only called by the UserViewModel class
+        This function is only called by the CipherPlayground class
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -668,22 +668,22 @@ def save_to_pending_operations(UserViewModel: object, cipher: object, format: st
     @return: None
     """
     if cipher.mode == ECB:
-        UserViewModel.pending_operations[format] = (cipher.mode.upper(), payload, None)
+        CipherPlayground.pending_operations[format] = (cipher.mode.upper(), payload, None)
     else:
-        UserViewModel.pending_operations[format] = (cipher.mode.upper(), payload, cipher.iv)
+        CipherPlayground.pending_operations[format] = (cipher.mode.upper(), payload, cipher.iv)
 
 
-def encrypt(UserViewModel: object, cipher: object):
+def encrypt(CipherPlayground: object, cipher: object):
     """
     Prompts the user on the type of encryption
     (user input, text file, or picture) and invokes
     on the cipher object to perform the encryption.
 
     @attention Use Case:
-        This function is only called by the UserViewModel class
+        This function is only called by the CipherPlayground class
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -700,26 +700,26 @@ def encrypt(UserViewModel: object, cipher: object):
         return None
 
     if option == 1:  # For User Input (from stdin)
-        _perform_user_input_operation(UserViewModel, cipher, operation=OP_ENCRYPT)
+        _perform_user_input_operation(CipherPlayground, cipher, operation=OP_ENCRYPT)
 
     if option == 2:  # For Text File
-        _perform_text_file_operation(UserViewModel, cipher, operation=OP_ENCRYPT)
+        _perform_text_file_operation(CipherPlayground, cipher, operation=OP_ENCRYPT)
 
     if option == 3:  # For Picture (Bitmap)
-        __perform_image_operation(UserViewModel, cipher, operation=OP_ENCRYPT)
+        __perform_image_operation(CipherPlayground, cipher, operation=OP_ENCRYPT)
 
 
-def decrypt(UserViewModel: object, cipher: object):
+def decrypt(CipherPlayground: object, cipher: object):
     """
     Prompts the user on the type of decryption
     (user input, text file, or picture) and invokes
     on the cipher object to perform the decryption.
 
     @attention Use Case:
-        This function is only called by the UserViewModel class
+        This function is only called by the CipherPlayground class
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -728,7 +728,7 @@ def decrypt(UserViewModel: object, cipher: object):
         The decrypted object (user input, text file, or picture)
     """
     # Print operations and user options
-    view_pending_operations(UserViewModel)
+    view_pending_operations(CipherPlayground)
 
     # Print user options
     print_options(options=USER_DECRYPT_OPTIONS)
@@ -741,25 +741,25 @@ def decrypt(UserViewModel: object, cipher: object):
             return None
 
         if option == 1:  # User Input
-            _perform_user_input_operation(UserViewModel, cipher, operation=OP_DECRYPT)
+            _perform_user_input_operation(CipherPlayground, cipher, operation=OP_DECRYPT)
 
         if option == 2:  # Text File
-            _perform_text_file_operation(UserViewModel, cipher, operation=OP_DECRYPT)
+            _perform_text_file_operation(CipherPlayground, cipher, operation=OP_DECRYPT)
 
         if option == 3:  # Picture
-            __perform_image_operation(UserViewModel, cipher, operation=OP_DECRYPT)
+            __perform_image_operation(CipherPlayground, cipher, operation=OP_DECRYPT)
 
     except KeyError:
         print(f"[+] DECRYPT ERROR: The selected operation does not exist; please try again")
 
 
-def _perform_user_input_operation(UserViewModel: object, cipher: object, operation: str):
+def _perform_user_input_operation(CipherPlayground: object, cipher: object, operation: str):
     """
     A helper function that performs encryption or
     decryption operations on user input (stdin).
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -771,13 +771,13 @@ def _perform_user_input_operation(UserViewModel: object, cipher: object, operati
     """
     if operation == OP_ENCRYPT:
         user_text = input(USER_ENCRYPT_INPUT_PROMPT)
-        ciphertext = cipher.encrypt(user_text, format=FORMAT_USER_INPUT)
-        save_to_pending_operations(UserViewModel, cipher, format=FORMAT_USER_INPUT, payload=ciphertext)
+        ciphertext = cipher.encrypt(user_text, playground=True, format=FORMAT_USER_INPUT)
+        save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_USER_INPUT, payload=ciphertext)
         print(f"[+] OPERATION COMPLETED: The corresponding ciphertext -> {ciphertext}")
 
     if operation == OP_DECRYPT:
         # Get cipher data from pending_operations
-        mode, ciphertext, iv = UserViewModel.pending_operations[FORMAT_USER_INPUT]
+        mode, ciphertext, iv = CipherPlayground.pending_operations[FORMAT_USER_INPUT]
 
         # Set cipher config
         cipher.mode = mode.lower()
@@ -785,18 +785,18 @@ def _perform_user_input_operation(UserViewModel: object, cipher: object, operati
             cipher.iv = iv
 
         # Perform decryption
-        plaintext = cipher.decrypt(ciphertext, format=FORMAT_USER_INPUT)
+        plaintext = cipher.decrypt(ciphertext, playground=True, format=FORMAT_USER_INPUT)
         print(f"[+] OPERATION COMPLETED: The corresponding plaintext -> {plaintext}")
-        del UserViewModel.pending_operations[FORMAT_USER_INPUT]
+        del CipherPlayground.pending_operations[FORMAT_USER_INPUT]
 
 
-def _perform_text_file_operation(UserViewModel: object, cipher: object, operation: str):
+def _perform_text_file_operation(CipherPlayground: object, cipher: object, operation: str):
     """
     A helper function that performs encryption or
     decryption operations on a text file.
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -812,31 +812,31 @@ def _perform_text_file_operation(UserViewModel: object, cipher: object, operatio
         # Open file, get contents, encrypt and save file to path
         plaintext_bytes = read_text_file(file_path)
         if plaintext_bytes is not None:
-            ciphertext = cipher.encrypt(plaintext_bytes, format=FORMAT_TEXT_FILE)
+            ciphertext = cipher.encrypt(plaintext_bytes, playground=True, format=FORMAT_TEXT_FILE)
             new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_TEXT_FILE)
-            save_to_pending_operations(UserViewModel, cipher, format=FORMAT_TEXT_FILE, payload=new_save_path)
+            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_TEXT_FILE, payload=new_save_path)
             write_to_text_file(new_save_path, ciphertext)
 
     if operation == OP_DECRYPT:
-        mode, file_path, iv = UserViewModel.pending_operations[FORMAT_TEXT_FILE]
+        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_TEXT_FILE]
         ciphertext_bytes = read_text_file(file_path)
 
         if ciphertext_bytes is not None:
             if cipher.mode.lower() == CBC:
                 cipher.iv = iv
-            decrypted_bytes = cipher.decrypt(ciphertext_bytes, format=FORMAT_TEXT_FILE)
+            decrypted_bytes = cipher.decrypt(ciphertext_bytes, playground=True, format=FORMAT_TEXT_FILE)
             new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_TEXT_FILE)
             write_to_text_file(new_save_path, decrypted_bytes)
-            del UserViewModel.pending_operations[FORMAT_TEXT_FILE]
+            del CipherPlayground.pending_operations[FORMAT_TEXT_FILE]
 
 
-def __perform_image_operation(UserViewModel: object, cipher: object, operation: str):
+def __perform_image_operation(CipherPlayground: object, cipher: object, operation: str):
     """
     A helper function that performs encryption or
     decryption operations on an image bitmap file.
 
-    @param UserViewModel:
-        A reference to the calling class object (UserViewModel)
+    @param CipherPlayground:
+        A reference to the calling class object (CipherPlayground)
 
     @param cipher:
         A CustomCipher object
@@ -852,20 +852,20 @@ def __perform_image_operation(UserViewModel: object, cipher: object, operation: 
         # Open image, get bytes, encrypt and save encrypted image to path
         header, image_data = read_image(img_path)
         if header is not None and image_data is not None:
-            encrypted_data = cipher.encrypt(image_data, format=FORMAT_PICTURE)
+            encrypted_data = cipher.encrypt(image_data, playground=True, format=FORMAT_PICTURE)
             new_save_path = modify_save_path(img_path, tag="_encrypted.bmp", mode=cipher.mode, format=FORMAT_PICTURE)
-            save_to_pending_operations(UserViewModel, cipher, format=FORMAT_PICTURE, payload=new_save_path)
+            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_PICTURE, payload=new_save_path)
             write_image(new_save_path, header, encrypted_data)
 
     if operation == OP_DECRYPT:
-        mode, file_path, iv = UserViewModel.pending_operations[FORMAT_PICTURE]
+        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_PICTURE]
         header, encrypted_data = read_image(file_path)
 
         # Open image, get bytes, decrypt and save decrypted image to path
         if header is not None and encrypted_data is not None:
             if cipher.mode.lower() == CBC:
                 cipher.iv = iv
-            decrypted_data = cipher.decrypt(encrypted_data, format=FORMAT_PICTURE)
+            decrypted_data = cipher.decrypt(encrypted_data, playground=True, format=FORMAT_PICTURE)
             new_save_path = modify_save_path(file_path, tag="_decrypted.bmp", mode=cipher.mode, format=FORMAT_PICTURE)
             write_image(new_save_path, header, decrypted_data)
-            del UserViewModel.pending_operations[FORMAT_PICTURE]
+            del CipherPlayground.pending_operations[FORMAT_PICTURE]

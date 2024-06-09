@@ -500,7 +500,7 @@ def _perform_avalanche_skac(UserViewModel: object, criteria: str, option: int,
 
     # Option 2 - Generate a shared secret key (from elliptic curve 'brainpoolP256r1')
     else:
-        key = generate_shared_secret(cipher.block_size)
+        key = generate_shared_secret()
         plaintext = generate_random_string(cipher.block_size)
         print(f"[+] Now performing avalanche analysis ({criteria}) with the generated EC key and "
               f"plain-text -> {key.hex()}, {plaintext}")

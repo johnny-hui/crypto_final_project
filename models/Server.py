@@ -1,9 +1,10 @@
 import select
 import sys
 import threading
-
-from utility.client_server_utils import accept_new_connection_handler, display_menu, receive_data, get_user_menu_option, \
-    close_application, view_current_connections, send_message
+from models.CipherPlayground import CipherPlayground
+from utility.client_server_utils import (accept_new_connection_handler, display_menu, receive_data,
+                                         get_user_menu_option, close_application, view_current_connections,
+                                         send_message)
 from utility.constants import INIT_SERVER_MSG, INIT_SUCCESS_MSG, MODE_SERVER, INPUT_PROMPT, USER_INPUT_THREAD_NAME, \
     USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, \
     SELECT_ONE_SECOND_TIMEOUT, SERVER_SELECT_CLIENT_PROMPT, SERVER_MAX_MENU_ITEM_VALUE, \
@@ -102,7 +103,7 @@ class Server:
                         view_current_connections(self, is_server=True)
 
                     if command == 3:
-                        print("CIPHER PLAYGROUND")  # TODO: Integrate this into UserViewModel class -> Playground class??
+                        CipherPlayground().start()
 
                     if command == 4:
                         close_application(self)
@@ -141,10 +142,7 @@ class Server:
                     for socket in self.fd_list[1:]:
                         if socket.getpeername()[0] == ip:
                             return socket, cipher
-
-                except ValueError as e:
-                    print(f"[+] ERROR: An invalid selection provided ({e}); please enter again.")
-                except TypeError as e:
+                except (ValueError, TypeError) as e:
                     print(f"[+] ERROR: An invalid selection provided ({e}); please enter again.")
         else:
             print("[+] ERROR: There are currently no connected clients to send message!")

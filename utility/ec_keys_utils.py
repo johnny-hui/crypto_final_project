@@ -111,7 +111,7 @@ def generate_shared_secret():
     and the 'brainpoolP256r1' elliptic curve.
 
     @attention Use Case:
-        Only used by UserViewModel class (for regeneration of
+        Only used by CipherPlayground class (for generation of
         main key and avalanche effect analysis SKAC in Cipher
         Playground)
 
@@ -122,5 +122,5 @@ def generate_shared_secret():
     pvt_key_1, pub_key_1 = generate_keys(mode=MODE_PLAYGROUND)
     pvt_key_2, pub_key_2 = generate_keys(mode=MODE_PLAYGROUND)
     shared_secret = derive_shared_secret(pvt_key_1, pub_key_2)
-    print(f"[+] OPERATION SUCCESSFUL: The shared secret is {shared_secret.hex()}")
+    print(f"[+] OPERATION SUCCESSFUL: The main key for cipher playground is {shared_secret.hex()}")
     return shared_secret

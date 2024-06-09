@@ -7,10 +7,13 @@ from utility.constants import USER_INPUT_PROMPT, USER_MENU_TITLE, USER_MENU_COLU
     PLAYGROUND_MIN_MENU_ITEM_VALUE, PLAYGROUND_MAX_MENU_ITEM_VALUE, USER_MENU_OPTIONS_LIST
 from utility.cipher_utils import get_user_menu_option, make_table, change_mode, change_main_key, regenerate_sub_keys, \
     encrypt, view_pending_operations, decrypt, print_config
+from utility.ec_keys_utils import generate_shared_secret
 
 
-class UserViewModel:
-    """A ViewModel class for an interactable user menu.
+class CipherPlayground:
+    """A class that enables users to experiment with the CustomCipher,
+    including encrypting/decrypting of various formats (user input, text and image files),
+    changing encryption modes (ECB or CBC), and analyzing the avalanche effect (SPAC and SKAC).
 
     Attributes:
         table - A table containing several user menu options
@@ -19,12 +22,12 @@ class UserViewModel:
         pending_operations - A dictionary (cache) that stores pending operations for the current state
         cipher_state - A list to store the cipher state (used for avalanche analysis (SKAC) key changes)
     """
-    def __init__(self, *args):
+    def __init__(self):
         """
-        A constructor for the UserViewModel class object.
+        A constructor for the CipherPlayground class object.
         """
         self.table = make_table(USER_MENU_TITLE, USER_MENU_COLUMNS, USER_MENU_OPTIONS_LIST)
-        self.cipher = CustomCipher(key=args[0], mode=args[1], iv=args[2])
+        self.cipher = CustomCipher(key=generate_shared_secret())  # Default: (Mode = ECB, IV = None)
         self.terminate = False
         self.pending_operations = {}  # Format => {Encrypted_Format: (mode, cipher_text/path_to_file, IV)}
         self.cipher_state = []
@@ -98,9 +101,8 @@ class UserViewModel:
 
         @return: None
         """
-        print("[+] CLOSE APPLICATION: Now closing the application...")
+        print("[+] TERMINATING PLAYGROUND: Now returning to the main menu...")
         self.terminate = True
-        print("[+] APPLICATION CLOSED: Application has been successfully terminated!")
 
     def save_cipher_state(self):
         """

@@ -1,4 +1,6 @@
 import hashlib
+import secrets
+
 from utility.cipher_utils import (pad_block, encrypt_block, decrypt_block,
                                   unpad_block, get_subkeys_from_user, get_default_subkeys,
                                   is_sub_keys_generated)
@@ -93,7 +95,7 @@ class CustomCipher:
         # Take the 23rd and 31st byte of the hash result as the output
         return hashed_result[23:31]
 
-    def encrypt(self, plaintext: str | bytes, format=None, verbose=False):
+    def encrypt(self, plaintext: str | bytes, format=None, playground=False, verbose=False):
         """
         Encrypts plaintext to ciphertext using a 16-round
         Feistel architecture.
@@ -109,6 +111,9 @@ class CustomCipher:
             A string representing the format to be encrypted
             (FORMAT_USER_INPUT, FORMAT_TEXT_FILE, FORMAT_PICTURE or
             FORMAT_AVALANCHE)
+
+        @param playground:
+            A boolean determining whether playground mode is on
 
         @param verbose:
             An optional boolean flag to turn on verbose mode;
@@ -148,6 +153,11 @@ class CustomCipher:
 
         if self.mode == CBC:
             print("[+] CBC ENCRYPTION: Now encrypting plaintext in CBC mode...")
+
+            # If in playground mode, generate IV
+            if playground:
+                self.iv = secrets.token_bytes(self.block_size)
+
             previous_block = self.iv
 
             for i in range(0, len(plaintext), self.block_size):
@@ -163,13 +173,16 @@ class CustomCipher:
 
         return ciphertext
 
-    def decrypt(self, ciphertext: bytes, format=None):
+    def decrypt(self, ciphertext: bytes, playground=False, format=None):
         """
         Decrypts ciphertext back into plaintext (or bytes)
         using a 16-round Feistel architecture.
 
         @param ciphertext:
             The ciphertext to be decrypted (bytes)
+
+        @param playground:
+            A boolean determining whether playground mode is on
 
         @param format:
             A string representing the format to be encrypted
@@ -196,7 +209,7 @@ class CustomCipher:
         if self.mode == CBC:
             print("[+] CBC DECRYPTION: Now decrypting ciphertext in CBC mode...")
 
-            # Get IV from class
+            # Get IV from class attribute
             previous_block = self.iv
 
             for i in range(0, len(ciphertext), self.block_size):
@@ -205,6 +218,10 @@ class CustomCipher:
                 decrypted_block = bytes([a ^ b for a, b in zip(previous_block, decrypted_block)])
                 plaintext_bytes += decrypted_block
                 previous_block = block
+
+            # If in playground mode, reset IV for next encryption
+            if playground:
+                self.iv = None
 
         if len(plaintext_bytes) % self.block_size == 0:
             if format in {FORMAT_TEXT_FILE, FORMAT_PICTURE}:
