@@ -11,7 +11,7 @@ from utility.constants import OP_DECRYPT, OP_ENCRYPT, NO_SUBKEYS_ENCRYPT_MSG, \
     NO_SUBKEYS_DECRYPT_MSG, INVALID_MENU_SELECTION, MENU_ACTION_START_MSG, INVALID_INPUT_MENU_ERROR, ECB, CBC, \
     CHANGE_KEY_PROMPT, REGENERATE_SUBKEY_PROMPT, REGENERATE_SUBKEY_OPTIONS, USER_ENCRYPT_OPTIONS_PROMPT, \
     USER_ENCRYPT_OPTIONS, USER_ENCRYPT_INPUT_PROMPT, FORMAT_USER_INPUT, PENDING_OP_TITLE, PENDING_OP_COLUMNS, \
-    USER_DECRYPT_OPTIONS_PROMPT, USER_DECRYPT_OPTIONS, FORMAT_TEXT_FILE, FORMAT_PICTURE, \
+    USER_DECRYPT_OPTIONS_PROMPT, USER_DECRYPT_OPTIONS, FORMAT_FILE, FORMAT_PICTURE, \
     USER_ENCRYPT_FILE_PATH_PROMPT, CIPHER_INIT_CONFIG_ATTRIBUTES, USER_ENCRYPT_IMAGE_PATH_PROMPT, \
     REGENERATE_SUBKEY_OPTIONS_PROMPT
 from utility.ec_keys_utils import generate_shared_secret
@@ -496,10 +496,9 @@ def print_options(options: list):
     print('=' * 80)
 
 
-def read_text_file(file_path: str):
+def read_file(file_path: str):
     """
-    Opens a text file and reads the contents
-    of the file.
+    Opens a text file and reads the contents of the file.
 
     @param file_path:
         A string for the text file path
@@ -507,20 +506,17 @@ def read_text_file(file_path: str):
     @return: contents
         A string containing the contents of the text file (None if error)
     """
-    if not file_path.endswith('.txt'):
-        print("[+] FILE FORMAT ERROR: Only text (.txt) files are supported!")
-        return None
     try:
         with open(file_path, 'rb') as file:
             return file.read()
     except FileNotFoundError:
-        print("[+] READ FILE ERROR: File not found in path provided ({})".format(file_path))
+        print("[+] READ FILE ERROR: File not found in the path provided ({})".format(file_path))
+        return None
 
 
-def write_to_text_file(file_path: str, data: bytes):
+def write_to_file(file_path: str, data: bytes):
     """
-    Opens a text file and returns the
-    contents of the file (as a string).
+    Writes content to a file (if exists).
 
     @param file_path:
         A string for the text file path
@@ -536,6 +532,7 @@ def write_to_text_file(file_path: str, data: bytes):
         print(f"[+] OPERATION COMPLETED: The file has been successfully saved to '{file_path}'")
     except IOError as e:
         print(f"[+] WRITE FILE ERROR: An error occurred while writing to the file {file_path}: {e}")
+        return None
 
 
 def read_image(file_path: str):
@@ -603,7 +600,8 @@ def write_image(img_path: str, header: bytes, data: bytes):
         print(f"[+] WRITE IMAGE ERROR: An error occurred while writing to the file ({img_path}): {e}")
 
 
-def modify_save_path(file_path: str, tag: str, mode: str, format: str):
+def modify_save_path(file_path: str, tag: str,
+                     mode: str, format: str):
     """
     Modifies the original file path and name to denote
     the newly encrypted or decrypted file.
@@ -810,24 +808,24 @@ def _perform_text_file_operation(CipherPlayground: object, cipher: object, opera
         file_path = input(USER_ENCRYPT_FILE_PATH_PROMPT)
 
         # Open file, get contents, encrypt and save file to path
-        plaintext_bytes = read_text_file(file_path)
+        plaintext_bytes = read_file(file_path)
         if plaintext_bytes is not None:
-            ciphertext = cipher.encrypt(plaintext_bytes, playground=True, format=FORMAT_TEXT_FILE)
-            new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_TEXT_FILE)
-            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_TEXT_FILE, payload=new_save_path)
-            write_to_text_file(new_save_path, ciphertext)
+            ciphertext = cipher.encrypt(plaintext_bytes, playground=True, format=FORMAT_FILE)
+            new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_FILE)
+            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_FILE, payload=new_save_path)
+            write_to_file(new_save_path, ciphertext)
 
     if operation == OP_DECRYPT:
-        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_TEXT_FILE]
-        ciphertext_bytes = read_text_file(file_path)
+        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_FILE]
+        ciphertext_bytes = read_file(file_path)
 
         if ciphertext_bytes is not None:
             if cipher.mode.lower() == CBC:
                 cipher.iv = iv
-            decrypted_bytes = cipher.decrypt(ciphertext_bytes, playground=True, format=FORMAT_TEXT_FILE)
-            new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_TEXT_FILE)
-            write_to_text_file(new_save_path, decrypted_bytes)
-            del CipherPlayground.pending_operations[FORMAT_TEXT_FILE]
+            decrypted_bytes = cipher.decrypt(ciphertext_bytes, playground=True, format=FORMAT_FILE)
+            new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_FILE)
+            write_to_file(new_save_path, decrypted_bytes)
+            del CipherPlayground.pending_operations[FORMAT_FILE]
 
 
 def __perform_image_operation(CipherPlayground: object, cipher: object, operation: str):

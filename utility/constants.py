@@ -66,16 +66,18 @@ INVALID_INPUT_MENU_ERROR = "[+] ERROR: Invalid input was provided to menu: {}"
 PENDING_OP_TITLE = "Pending Operations (Decryption)"
 PENDING_OP_COLUMNS = ["Format", "Mode", "Encrypted Payload", "Initialization Vector (IV)"]
 FORMAT_USER_INPUT = "USER_INPUT"
-FORMAT_TEXT_FILE = "TEXT"   # => Path to file
+FORMAT_FILE = "FILE"   # => Path to file
 FORMAT_PICTURE = "PICTURE"  # => Path to file
 FORMAT_AVALANCHE = "AVALANCHE"
+FORMAT_STRING = "STRING"
+FORMAT_BYTES = "BYTES"
 
 
 # CLIENT/SERVER MENU CONSTANTS
 CLIENT_MIN_MENU_ITEM_VALUE = 1
-CLIENT_MAX_MENU_ITEM_VALUE = 5
+CLIENT_MAX_MENU_ITEM_VALUE = 6
 SERVER_MIN_MENU_ITEM_VALUE = 1
-SERVER_MAX_MENU_ITEM_VALUE = 4
+SERVER_MAX_MENU_ITEM_VALUE = 5
 MENU_TITLE = "Menu Options"
 MENU_FIELD_OPTION = "Option"
 MENU_FIELD_DESC = "Command"
@@ -87,18 +89,27 @@ CLIENT_MENU_OPTIONS_LIST = [
     ["4", "Cipher Playground"],
     ["5", "Disconnect (Close Application)"]
 ]
+CLIENT_MENU_CONNECTED_OPTIONS_LIST = [
+    ["1", "Send Message to Server"],
+    ["2", "Send a File to Server"],
+    ["3", "View Current Connection"],
+    ["4", "Select Cipher Mode"],
+    ["5", "Cipher Playground"],
+    ["6", "Disconnect (Close Application)"]
+]
 SERVER_MENU_OPTIONS_LIST = [
     ["1", "Send Message to a Client"],
-    ["2", "View Current Connections"],
-    ["3", "Cipher Playground"],
-    ["4", "Disconnect (Close Application)"]
+    ["2", "Send a File to a Client"],
+    ["3", "View Current Connections"],
+    ["4", "Cipher Playground"],
+    ["5", "Disconnect (Close Application)"]
 ]
-SEND_MESSAGE_OPTION = ["1", "Send Message to Server"]
 USER_INPUT_START_MSG = "[+] User input (menu) thread has started!"
 USER_INPUT_THREAD_NAME = "user_input_menu_thread"
 USER_MENU_THREAD_TERMINATE = "[+] THREAD TERMINATION: User menu thread has been successfully terminated!"
 SELECT_ONE_SECOND_TIMEOUT = 1
 CIPHER_MODE_PROMPT = "[+] CHANGE CIPHER MODE: Enter 1 - CBC; Enter 2 - ECB; (or Enter 0 to quit) "
+ACK = "ACK"
 
 
 # USER MENU - REGENERATE SUBKEYS CONSTANTS
@@ -171,9 +182,16 @@ CONNECTION_INFO_FIELD_IV = "Initialization Vector (IV)"
 
 
 # SEND MESSAGE CONSTANTS
-SERVER_SELECT_CLIENT_PROMPT = "\n[+] Select a specific client to send a message to (enter a number from {} to {}): "
+SELECT_CLIENT_SEND_MSG_PROMPT = "\n[+] Select a specific client to send a message to (enter a number from {} to {}): "
+
+
+# TRANSFER FILE CONSTANTS
+SELECT_CLIENT_SEND_FILE_PROMPT = "\n[+] Select a specific client to transfer a file to (enter a number from {} to {}): "
+TRANSFER_FILE_PATH_PROMPT = "[+] Please enter the path of the file to transfer: "
+FILE_TRANSFER_SIGNAL = "FILE TRANSFER"
 
 
 # OTHER CONSTANTS
 OP_ENCRYPT = "ENCRYPTION"
 OP_DECRYPT = "DECRYPTION"
+SAVE_FILE_DIR = "data/received/{}"

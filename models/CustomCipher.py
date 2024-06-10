@@ -5,7 +5,7 @@ from utility.cipher_utils import (pad_block, encrypt_block, decrypt_block,
                                   unpad_block, get_subkeys_from_user, get_default_subkeys,
                                   is_sub_keys_generated)
 from utility.constants import (CIPHER_INIT_MSG, ROUNDS, BLOCK_SIZE, DEFAULT_ROUND_KEYS,
-                               OP_ENCRYPT, OP_DECRYPT, INIT_SUCCESS_MSG, FORMAT_TEXT_FILE,
+                               OP_ENCRYPT, OP_DECRYPT, INIT_SUCCESS_MSG, FORMAT_FILE,
                                FORMAT_PICTURE, FORMAT_AVALANCHE, ECB, CBC)
 
 
@@ -53,7 +53,6 @@ class CustomCipher:
             A string representing the transformed right block
         """
         # TODO: Incorporate round number to this function
-        # TODO: Add a verbose mode to view per-round hashes
         def substitute(byte: int):
             """
             Substitution of a character(byte) of the right block
@@ -95,7 +94,8 @@ class CustomCipher:
         # Take the 23rd and 31st byte of the hash result as the output
         return hashed_result[23:31]
 
-    def encrypt(self, plaintext: str | bytes, format=None, playground=False, verbose=False):
+    def encrypt(self, plaintext: str | bytes, format=None,
+                playground=False, partition=False, verbose=False):
         """
         Encrypts plaintext to ciphertext using a 16-round
         Feistel architecture.
@@ -113,7 +113,13 @@ class CustomCipher:
             FORMAT_AVALANCHE)
 
         @param playground:
-            A boolean determining whether playground mode is on
+            A boolean that determines whether playground mode is on
+            (default=False)
+
+        @param partition:
+            A boolean that determines whether to partition the resulting
+            ciphertext into blocks instead of returning it as a whole
+            (default=False)
 
         @param verbose:
             An optional boolean flag to turn on verbose mode;
@@ -125,13 +131,14 @@ class CustomCipher:
         """
         # Initialize Variables
         ciphertext = b''
-
-        # Encode plaintext (string) to bytes (if the format is a string)
-        if format not in {FORMAT_TEXT_FILE, FORMAT_PICTURE, FORMAT_AVALANCHE}:
-            plaintext = plaintext.encode()
+        blocks = []
 
         if is_sub_keys_generated(self.sub_keys, operation=OP_ENCRYPT) is False:
             return None
+
+        # Encode plaintext to bytes (if the format is a string)
+        if format not in {FORMAT_FILE, FORMAT_PICTURE, FORMAT_AVALANCHE}:
+            plaintext = plaintext.encode()
 
         if self.mode == ECB:
             if not verbose:  # Don't print if verbose (during avalanche analysis)
@@ -149,7 +156,10 @@ class CustomCipher:
                     round_data.append(self.key)
                     return round_data
 
-                ciphertext += encrypt_block(self, block)
+                if partition:
+                    blocks.append(encrypt_block(self, block))
+                else:
+                    ciphertext += encrypt_block(self, block)
 
         if self.mode == CBC:
             print("[+] CBC ENCRYPTION: Now encrypting plaintext in CBC mode...")
@@ -168,10 +178,15 @@ class CustomCipher:
 
                 block = bytes([a ^ b for a, b in zip(previous_block, block)])  # XOR with previous block
                 encrypted_block = encrypt_block(self, block)
-                ciphertext += encrypted_block
+
+                if partition:
+                    blocks.append(encrypted_block)
+                else:
+                    ciphertext += encrypted_block
+
                 previous_block = encrypted_block
 
-        return ciphertext
+        return ciphertext if not partition else blocks
 
     def decrypt(self, ciphertext: bytes, playground=False, format=None):
         """
@@ -224,7 +239,7 @@ class CustomCipher:
                 self.iv = None
 
         if len(plaintext_bytes) % self.block_size == 0:
-            if format in {FORMAT_TEXT_FILE, FORMAT_PICTURE}:
+            if format in {FORMAT_FILE, FORMAT_PICTURE}:
                 return unpad_block(plaintext_bytes)  # => Return bytes
             else:
                 return unpad_block(plaintext_bytes).decode()  # => Return string

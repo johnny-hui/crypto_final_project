@@ -4,7 +4,7 @@ import threading
 from models.CipherPlayground import CipherPlayground
 from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import (display_menu, get_user_menu_option, send_message, connect_to_server,
-                                         receive_data, view_current_connections, close_application)
+                                         receive_data, view_current_connections, close_application, send_file)
 from utility.constants import (INPUT_PROMPT, INIT_CLIENT_MSG, INIT_SUCCESS_MSG, MODE_CLIENT, USER_INPUT_THREAD_NAME,
                                USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, SELECT_ONE_SECOND_TIMEOUT,
                                CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE, CBC, CIPHER_MODE_PROMPT, ECB)
@@ -95,6 +95,7 @@ class Client:
             # Get User Command from the Menu and perform the task
             for fd in readable:
                 if fd == sys.stdin:
+                    # TODO: Refactor menu command (if connected vs. not connected using lambdas)
                     command = get_user_menu_option(fd, CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
@@ -104,18 +105,36 @@ class Client:
                             connect_to_server(self)
 
                     if command == 2:
-                        view_current_connections(self)
+                        if self.is_connected and self.server_socket is not None:
+                            send_file(self.server_socket, self.cipher)
+                        else:
+                            view_current_connections(self)
 
                     if command == 3:
-                        self.__change_cipher_mode()
+                        if self.is_connected and self.server_socket is not None:
+                            view_current_connections(self)
+                        else:
+                            self.__change_cipher_mode()
 
                     if command == 4:
-                        CipherPlayground().start()
+                        if self.is_connected and self.server_socket is not None:
+                            self.__change_cipher_mode()
+                        else:
+                            CipherPlayground().start()
 
                     if command == 5:
-                        close_application(self)
-                        print(USER_MENU_THREAD_TERMINATE)
-                        return None
+                        if self.is_connected and self.server_socket is not None:
+                            CipherPlayground().start()
+                        else:
+                            close_application(self)
+                            print(USER_MENU_THREAD_TERMINATE)
+                            return None
+
+                    if command == 6:
+                        if self.is_connected and self.server_socket is not None:
+                            close_application(self)
+                            print(USER_MENU_THREAD_TERMINATE)
+                            return None
 
                 display_menu(self.is_connected)
                 print(INPUT_PROMPT)
@@ -127,6 +146,11 @@ class Client:
         @return: None
         """
         print(f"[+] CURRENT CIPHER MODE: {self.cipher_mode.upper()}")
+
+        if self.is_connected:
+            print("[+] CHANGE CIPHER MODE ERROR: Cannot change cipher mode while connected to a server!")
+            return None
+
         option = get_user_command_option(msg=CIPHER_MODE_PROMPT, opt_range=tuple(range(3)))
         if option == 0:
             return None

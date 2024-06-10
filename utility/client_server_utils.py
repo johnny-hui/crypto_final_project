@@ -1,5 +1,6 @@
 import gc
 import ipaddress
+import os
 import pickle
 import secrets
 import socket
@@ -10,19 +11,23 @@ from prettytable import PrettyTable
 from tinyec.ec import Inf
 
 from models.CustomCipher import CustomCipher
+from utility.cipher_utils import read_file, write_to_file
 from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, CLIENT_MENU_OPTIONS_LIST,
-                               SEND_MESSAGE_OPTION, SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
+                               SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
                                MENU_ACTION_START_MSG, INVALID_INPUT_MENU_ERROR, MIN_PORT_VALUE,
                                MAX_PORT_VALUE, CONNECTION_INFO_FIELD_NAME, CONNECTION_INFO_FIELD_IP,
                                CONNECTION_INFO_FIELD_SECRET, CONNECTION_INFO_FIELD_IV, CONNECTION_INFO_TITLE, CBC,
-                               BLOCK_SIZE, CONNECTION_INFO_FIELD_CIPHER_MODE)
+                               BLOCK_SIZE, CONNECTION_INFO_FIELD_CIPHER_MODE, MODE_SERVER, MODE_CLIENT,
+                               CLIENT_MENU_CONNECTED_OPTIONS_LIST, TRANSFER_FILE_PATH_PROMPT, FORMAT_FILE,
+                               FILE_TRANSFER_SIGNAL, FORMAT_BYTES, ACK, SAVE_FILE_DIR)
 from utility.ec_keys_utils import derive_shared_secret, compress
 
 
 def encrypt(cipher: CustomCipher, plain_text: str):
     """
-    Uses the CustomCipher to encrypt plaintext with a 32-byte
-    (256-bit) shared secret key derived from ECDH.
+    An abstraction function that invokes the CustomCipher
+    to encrypt plaintext with a 16-byte (128-bit) shared
+    secret key derived from ECDH.
 
     @param cipher:
         A CustomCipher object
@@ -38,10 +43,11 @@ def encrypt(cipher: CustomCipher, plain_text: str):
     return ciphertext
 
 
-def decrypt(cipher: CustomCipher, cipher_text: bytes):
+def decrypt(cipher: CustomCipher, cipher_text: bytes, format=None):
     """
-    Uses the CustomCipher to decrypt ciphertext with a 32-byte
-    (256-bit) shared secret key derived from ECDH.
+    An abstraction function that invokes the CustomCipher
+    to decrypt ciphertext with a 16-byte (128-bit) shared
+    secret key derived from ECDH.
 
     @param cipher:
         A CustomCipher object
@@ -49,10 +55,17 @@ def decrypt(cipher: CustomCipher, cipher_text: bytes):
     @param cipher_text:
         An array of bytes containing encrypted data
 
+    @param format:
+        An optional parameter to indicate the type of format
+        to return (Bytes or Decoded String)
+
     @return: plain_text
         The decrypted plaintext (string)
     """
-    plain_text = cipher.decrypt(cipher_text)
+    if format == FORMAT_BYTES:
+        plain_text = cipher.decrypt(cipher_text, format=FORMAT_FILE)  # Return bytes
+    else:
+        plain_text = cipher.decrypt(cipher_text)  # Return decoded string
     return plain_text
 
 
@@ -77,8 +90,7 @@ def display_menu(is_connected: bool = False, is_server: bool = False):
         for item in SERVER_MENU_OPTIONS_LIST:
             menu.add_row(item)
     elif is_connected:
-        menu.add_row(SEND_MESSAGE_OPTION)
-        for item in CLIENT_MENU_OPTIONS_LIST[1:]:
+        for item in CLIENT_MENU_CONNECTED_OPTIONS_LIST:
             menu.add_row(item)
     else:
         for item in CLIENT_MENU_OPTIONS_LIST:
@@ -221,6 +233,48 @@ def __get_target_port():
             print(f"[+] ERROR: An invalid port number was provided ({e}); please enter again.")
 
 
+def exchange_public_keys(pub_key: Inf, sock: socket.socket, mode: str):
+    """
+    Performs the ECDH public key exchange process.
+
+    @param pub_key:
+        The public key to send over
+
+    @param sock:
+        A socket object
+
+    @param mode:
+        A string to denote whether calling class is
+        a server or client
+
+    @return: Public Key
+        The other end's public key
+    """
+    if mode == MODE_SERVER:
+        print("[+] KEY EXCHANGE: Now exchanging keys with new client...")
+
+        # Receive Client's Public Key
+        serialized_client_pub_key = sock.recv(4096)
+        client_pub_key = pickle.loads(serialized_client_pub_key)
+
+        # Send over the public key to the client
+        serialized_key = pickle.dumps(pub_key)
+        sock.sendall(serialized_key)
+        return client_pub_key
+
+    if mode == MODE_CLIENT:
+        print("[+] KEY EXCHANGE: Now exchanging keys with the server...")
+
+        # Send Public Key to Server
+        serialized_key = pickle.dumps(pub_key)
+        sock.sendall(serialized_key)
+
+        # Receive Public Key from Server
+        serialized_server_pub_key = sock.recv(4096)
+        server_pub_key = pickle.loads(serialized_server_pub_key)
+        return server_pub_key
+
+
 def connect_to_server(self: object):
     """
     Prompts the user for the target IP address and port, and
@@ -246,7 +300,6 @@ def connect_to_server(self: object):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((target_ip, target_port))
         print(f"[+] CONNECTION EVENT: Established a connection to server ({target_ip}, {target_port})")
-        print("[+] KEY EXCHANGE: Now exchanging keys with the server...")
 
         # Bind class attributes
         self.is_connected = True
@@ -256,20 +309,15 @@ def connect_to_server(self: object):
         sock.send(self.cipher_mode.encode())
         print(f"[+] MODE SELECTED: The encryption mode chosen for this session is {self.cipher_mode.upper()}")
 
-        # Generate and send client IV (if CBC)
+        # Generate new session IV and send to server (if CBC)
         if self.cipher_mode == CBC:
             iv = secrets.token_bytes(BLOCK_SIZE)
             time.sleep(0.5)
             sock.send(iv)
             print(f"[+] IV GENERATED: An initialization vector (IV) has been generated for this session ({iv.hex()})")
 
-        # Send Public Key to Server
-        serialized_key = pickle.dumps(self.pub_key)
-        sock.sendall(serialized_key)
-
-        # Receive Public Key from Server
-        serialized_server_pub_key = sock.recv(4096)
-        server_pub_key = pickle.loads(serialized_server_pub_key)
+        # Exchange Public Keys with Server
+        server_pub_key = exchange_public_keys(self.pub_key, sock, mode=MODE_CLIENT)
         print(f"[+] PUBLIC KEY RECEIVED: Successfully received the server's public key ({compress(server_pub_key)})")
 
         # Derive the shared secret (print in hex)
@@ -297,33 +345,6 @@ def connect_to_server(self: object):
         print(f"[+] CONNECTION SUCCESS: A secure session with {self.server_name} has been established!")
     except socket.error as e:
         print(f"[+] CONNECTION FAILED: Failed to connect to target server ({e}); please try again.")
-
-
-def exchange_public_keys(pub_key: Inf, client_sock: socket.socket):
-    """
-    Performs the ECDH public key exchange process.
-
-    @attention Use Case:
-        Only used by Server class (client has their own protocol)
-
-    @param pub_key:
-        The public key to send over
-
-    @param client_sock:
-        The client's socket
-
-    @return: client_pub_key
-    """
-    print("[+] KEY EXCHANGE: Now exchanging keys with new client...")
-
-    # Receive Client's Public Key
-    serialized_client_pub_key = client_sock.recv(4096)
-    client_pub_key = pickle.loads(serialized_client_pub_key)
-
-    # Send over the public key to the client
-    serialized_key = pickle.dumps(pub_key)
-    client_sock.sendall(serialized_key)
-    return client_pub_key
 
 
 def accept_new_connection_handler(self: object, own_sock: socket.socket):
@@ -357,7 +378,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
         print(f"[+] IV RECEIVED: The initialization vector (IV) has been received from the client ({client_iv.hex()})")
 
     # Exchange public keys with the client
-    client_pub_key = exchange_public_keys(self.pub_key, client_socket)
+    client_pub_key = exchange_public_keys(self.pub_key, client_socket, mode=MODE_SERVER)
     print(f"[+] PUBLIC KEY RECEIVED: Successfully received the client's public key ({compress(client_pub_key)})")
 
     # Derive the shared secret and compress for AES
@@ -404,7 +425,6 @@ def send_message(sock: socket.socket, cipher: CustomCipher):
         message = input(f"[+] Enter a message to send to ({ip}): ")
         cipher_text = encrypt(cipher, message)
         sock.send(cipher_text)
-
         print("[+] Your message has been successfully sent!")
 
 
@@ -434,17 +454,20 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
 
     # Handler for Server
     if is_server:
-        client_info = self.client_dict[ip_address]  # => Get client info (only corresponding cipher)
+        client_info = self.client_dict[ip_address]  # => Get client info (and their corresponding cipher)
         if data:
             print(f"[+] Received data from [{client_info[0]}, {ip_address}] (encrypted): {data}")
             plain_text = decrypt(cipher=client_info[-1], cipher_text=data)
             print(f"[+] Received data from [{client_info[0]}, {ip_address}] (decrypted): {plain_text}")
+
+            if plain_text == FILE_TRANSFER_SIGNAL:  # File Transfer Handler
+                receive_file(ip_address, sock, cipher=client_info[-1])
         else:
             print(f"[+] Connection closed by ({client_info[0]}, {ip_address})")
             del self.client_dict[ip_address]
             self.fd_list.remove(sock)
             sock.close()
-            gc.collect()  # Perform garbage collect for any saved CustomCipher objects
+            gc.collect()  # Perform garbage collection for saved cipher objects
 
     # Handler for Client
     else:
@@ -452,10 +475,126 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             print(f"[+] Received data from [{self.server_name}, {ip_address}] (encrypted): {data}")
             plain_text = decrypt(cipher=self.cipher, cipher_text=data)
             print(f"[+] Received data from [{self.server_name}, {ip_address}] (decrypted): {plain_text}")
+
+            if plain_text == FILE_TRANSFER_SIGNAL:  # File Transfer Handler
+                receive_file(ip_address, sock, cipher=self.cipher)
         else:
             print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
             del self.cipher
-            self.server_socket, self.server_name, self.shared_secret, self.cipher = None, None, None, None
+            self.is_connected = False
+            self.server_socket, self.server_name, self.shared_secret, self.cipher = (None, None, None, None)
             self.fd_list.remove(sock)
             sock.close()
             gc.collect()
+
+
+def send_file(sock: socket.socket, cipher: CustomCipher):
+    """
+    Sends a file to the target host.
+
+    @param sock:
+        A target socket object
+
+    @param cipher:
+        A CustomCipher object
+
+    @return: None
+    """
+    if sock is None and cipher is None:
+        return None
+
+    # Prompt user for a file path (can be any format)
+    input_path = input(TRANSFER_FILE_PATH_PROMPT)
+
+    # Open file and load data in bytes
+    file_content = read_file(file_path=input_path)
+
+    # Call cipher.encrypt() in partition mode and get encrypted blocks
+    if file_content is not None:
+        print("[+] Now transferring the file to the other host...")
+        encrypted_blocks_list = cipher.encrypt(plaintext=file_content,
+                                               format=FORMAT_FILE,
+                                               partition=True)
+
+        # Send a signal for File Transfer to the other host
+        sock.send(encrypt(cipher, plain_text=FILE_TRANSFER_SIGNAL))
+        print("[+] A signal has been sent to the other host to initiate file transfer...")
+
+        # Wait for ACK before proceeding
+        sock.recv(1024)
+
+        # Send the file name to target
+        file_name = input_path.split("/")[-1]
+        sock.send(encrypt(cipher, plain_text=file_name))
+
+        # Wait for ACK before proceeding
+        sock.recv(1024)
+
+        # Print the number of blocks (via. length of list) and send to target
+        total_blocks = len(encrypted_blocks_list)
+        sock.send(encrypt(cipher, plain_text=str(total_blocks)))
+        print(f"[+] Total Number of Blocks (to be sent): {total_blocks}")
+
+        # Wait for ACK before proceeding
+        sock.recv(1024)
+
+        # LOOP: For each encrypted_block (in bytes), send and wait for ACK
+        for index, block in enumerate(encrypted_blocks_list):
+            sock.send(block)
+            sock.recv(1024)
+            print(f"[+] Block {index + 1}/{total_blocks} has been successfully sent and received by the other host.")
+
+        print(f"[+] OPERATION SUCCESSFUL: {file_name} has been successfully sent!")
+
+
+def receive_file(ip_address: str, sock: socket.socket, cipher: CustomCipher):
+    """
+    Receives a file from an initiating host.
+
+    @param ip_address:
+        A string representing the IP address of the
+        connected host
+
+    @param sock:
+        A socket object
+
+    @param cipher:
+        A CustomCipher object
+
+    @return: None
+    """
+    print(f"[+] FILE TRANSFER: A host ({ip_address}) has initiated file transfer!")
+
+    # Send ACK to synchronize with the other host
+    sock.send(encrypt(cipher, plain_text=ACK))
+
+    # Receive File Name
+    file_name = decrypt(cipher, cipher_text=sock.recv(1024))
+    print(f"[+] Host ({ip_address}) is transferring the following file: {file_name}")
+
+    # Create a Save Directory for the file ("data/received/host_ip")
+    if not os.path.exists(SAVE_FILE_DIR.format(ip_address)):
+        os.makedirs(SAVE_FILE_DIR.format(ip_address))
+        print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip_address)}")
+
+    # Send ACK to synchronize with the other host
+    sock.send(encrypt(cipher, plain_text=ACK))
+
+    # Receive total number of blocks
+    total_blocks = decrypt(cipher, cipher_text=sock.recv(1024))
+    print(f"[+] Total Number of Blocks (to be received): {total_blocks}")
+
+    # Send ACK to synchronize with the other host
+    sock.send(encrypt(cipher, plain_text=ACK))
+
+    # LOOP: Receive and decrypt encrypted blocks and send ACK
+    decrypted_data = b""
+    for i in range(int(total_blocks)):
+        decrypted_block = decrypt(cipher, cipher_text=sock.recv(1024), format=FORMAT_BYTES)  # => Return data as bytes
+        decrypted_data += decrypted_block
+        print(f"[+] Block {i + 1}/{total_blocks} has been successfully received: {decrypted_block.decode()}")
+        sock.send(encrypt(cipher, plain_text=ACK))
+
+    # Save decrypted content into a file
+    new_save_path = os.path.join(SAVE_FILE_DIR.format(ip_address), file_name)
+    write_to_file(new_save_path, data=decrypted_data)

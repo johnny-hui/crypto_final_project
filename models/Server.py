@@ -1,14 +1,15 @@
 import select
 import sys
 import threading
+
 from models.CipherPlayground import CipherPlayground
 from utility.client_server_utils import (accept_new_connection_handler, display_menu, receive_data,
                                          get_user_menu_option, close_application, view_current_connections,
-                                         send_message)
+                                         send_message, send_file)
 from utility.constants import INIT_SERVER_MSG, INIT_SUCCESS_MSG, MODE_SERVER, INPUT_PROMPT, USER_INPUT_THREAD_NAME, \
     USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, \
-    SELECT_ONE_SECOND_TIMEOUT, SERVER_SELECT_CLIENT_PROMPT, SERVER_MAX_MENU_ITEM_VALUE, \
-    SERVER_MIN_MENU_ITEM_VALUE
+    SELECT_ONE_SECOND_TIMEOUT, SELECT_CLIENT_SEND_MSG_PROMPT, SERVER_MAX_MENU_ITEM_VALUE, \
+    SERVER_MIN_MENU_ITEM_VALUE, SELECT_CLIENT_SEND_FILE_PROMPT
 from utility.ec_keys_utils import generate_keys
 from utility.init import parse_arguments, initialize_socket
 
@@ -96,16 +97,20 @@ class Server:
                     command = get_user_menu_option(fd, SERVER_MIN_MENU_ITEM_VALUE, SERVER_MAX_MENU_ITEM_VALUE)
 
                     if command == 1:
-                        client_sock, cipher = self.__get_specific_client()
+                        client_sock, cipher = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_MSG_PROMPT)
                         send_message(client_sock, cipher)
 
                     if command == 2:
-                        view_current_connections(self, is_server=True)
+                        client_sock, cipher = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
+                        send_file(client_sock, cipher)
 
                     if command == 3:
-                        CipherPlayground().start()
+                        view_current_connections(self, is_server=True)
 
                     if command == 4:
+                        CipherPlayground().start()
+
+                    if command == 5:
                         close_application(self)
                         print(USER_MENU_THREAD_TERMINATE)
                         return None
@@ -113,10 +118,16 @@ class Server:
                 display_menu(is_server=True)
                 print(INPUT_PROMPT)
 
-    def __get_specific_client(self):
+    def __get_specific_client(self, prompt: str):
         """
         Prompts user to choose a specific client to
         send a message to.
+
+        @attention Use Case:
+            Used by Server class
+
+        @param prompt:
+            A string containing the prompt
 
         @return: tuple(fd, shared_secret, iv)
             A tuple containing the client socket, shared secret and
@@ -129,10 +140,10 @@ class Server:
             while True:
                 try:
                     # Prompt user selection for a specific client
-                    client_index = int(input(SERVER_SELECT_CLIENT_PROMPT.format(1, len(self.client_dict))))
+                    client_index = int(input(prompt.format(1, len(self.client_dict))))
                     while client_index not in range(1, (len(self.client_dict) + 1)):
                         print("[+] ERROR: Invalid selection range; please enter again.")
-                        client_index = int(input(SERVER_SELECT_CLIENT_PROMPT.format(1, len(self.client_dict))))
+                        client_index = int(input(prompt.format(1, len(self.client_dict))))
 
                     # Get information of the client (from dictionary)
                     ip, info = list(self.client_dict.items())[client_index - 1]
