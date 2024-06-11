@@ -6,12 +6,9 @@ import secrets
 import socket
 import time
 from typing import TextIO
-
 from prettytable import PrettyTable
 from tinyec.ec import Inf
-
 from models.CustomCipher import CustomCipher
-from utility.cipher_utils import read_file, write_to_file
 from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, CLIENT_MENU_OPTIONS_LIST,
                                SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
                                MENU_ACTION_START_MSG, INVALID_INPUT_MENU_ERROR, MIN_PORT_VALUE,
@@ -19,11 +16,11 @@ from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, C
                                CONNECTION_INFO_FIELD_SECRET, CONNECTION_INFO_FIELD_IV, CONNECTION_INFO_TITLE, CBC,
                                BLOCK_SIZE, CONNECTION_INFO_FIELD_CIPHER_MODE, MODE_SERVER, MODE_CLIENT,
                                CLIENT_MENU_CONNECTED_OPTIONS_LIST, TRANSFER_FILE_PATH_PROMPT, FORMAT_FILE,
-                               FILE_TRANSFER_SIGNAL, FORMAT_BYTES, ACK, SAVE_FILE_DIR)
+                               FILE_TRANSFER_SIGNAL, FORMAT_BYTES, ACK, SAVE_FILE_DIR, END_OF_FILE)
 from utility.ec_keys_utils import derive_shared_secret, compress
 
 
-def encrypt(cipher: CustomCipher, plain_text: str):
+def encrypt(cipher: CustomCipher, plain_text: str | bytes, format=None, verbose=True):
     """
     An abstraction function that invokes the CustomCipher
     to encrypt plaintext with a 16-byte (128-bit) shared
@@ -36,14 +33,25 @@ def encrypt(cipher: CustomCipher, plain_text: str):
         A string representing the plaintext to
         be encrypted
 
+    @param format:
+        A string denoting the format of the encryption
+        (FILE, TEXT, STRING, etc)
+
+    @param verbose:
+        A boolean indicating to turn on verbose mode
+        (default=True)
+
     @return: cipher_text
         The encrypted ciphertext (string)
     """
-    ciphertext = cipher.encrypt(plain_text)
+    if format == FORMAT_FILE:
+        ciphertext = cipher.encrypt(plain_text, format=FORMAT_FILE, verbose=verbose)
+    else:
+        ciphertext = cipher.encrypt(plain_text, verbose=verbose)
     return ciphertext
 
 
-def decrypt(cipher: CustomCipher, cipher_text: bytes, format=None):
+def decrypt(cipher: CustomCipher, cipher_text: bytes, format=None, verbose=True):
     """
     An abstraction function that invokes the CustomCipher
     to decrypt ciphertext with a 16-byte (128-bit) shared
@@ -59,13 +67,17 @@ def decrypt(cipher: CustomCipher, cipher_text: bytes, format=None):
         An optional parameter to indicate the type of format
         to return (Bytes or Decoded String)
 
+    @param verbose:
+        A boolean indicating to turn on verbose mode
+        (default=True)
+
     @return: plain_text
         The decrypted plaintext (string)
     """
     if format == FORMAT_BYTES:
-        plain_text = cipher.decrypt(cipher_text, format=FORMAT_FILE)  # Return bytes
+        plain_text = cipher.decrypt(cipher_text, format=FORMAT_FILE, verbose=verbose)  # Return bytes
     else:
-        plain_text = cipher.decrypt(cipher_text)  # Return decoded string
+        plain_text = cipher.decrypt(cipher_text, verbose=verbose)  # Return decoded string
     return plain_text
 
 
@@ -306,6 +318,7 @@ def connect_to_server(self: object):
         self.server_socket = sock
 
         # Send cipher suite (mode) to the server
+        time.sleep(0.5)
         sock.send(self.cipher_mode.encode())
         print(f"[+] MODE SELECTED: The encryption mode chosen for this session is {self.cipher_mode.upper()}")
 
@@ -460,8 +473,9 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             plain_text = decrypt(cipher=client_info[-1], cipher_text=data)
             print(f"[+] Received data from [{client_info[0]}, {ip_address}] (decrypted): {plain_text}")
 
-            if plain_text == FILE_TRANSFER_SIGNAL:  # File Transfer Handler
-                receive_file(ip_address, sock, cipher=client_info[-1])
+            # File Transfer Handler
+            if plain_text == FILE_TRANSFER_SIGNAL:
+                receive_file(name=client_info[0], ip=ip_address, sock=sock, cipher=client_info[-1])
         else:
             print(f"[+] Connection closed by ({client_info[0]}, {ip_address})")
             del self.client_dict[ip_address]
@@ -476,8 +490,9 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             plain_text = decrypt(cipher=self.cipher, cipher_text=data)
             print(f"[+] Received data from [{self.server_name}, {ip_address}] (decrypted): {plain_text}")
 
-            if plain_text == FILE_TRANSFER_SIGNAL:  # File Transfer Handler
-                receive_file(ip_address, sock, cipher=self.cipher)
+            # File Transfer Handler
+            if plain_text == FILE_TRANSFER_SIGNAL:
+                receive_file(name=self.server_name, ip=ip_address, sock=sock, cipher=self.cipher)
         else:
             print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
             del self.cipher
@@ -488,9 +503,17 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             gc.collect()
 
 
-def send_file(sock: socket.socket, cipher: CustomCipher):
+def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
     Sends a file to the target host.
+
+    @param name:
+        A string representing the name of
+        the target host
+
+    @param ip:
+        A string representing the IP address
+        of the target host
 
     @param sock:
         A target socket object
@@ -506,54 +529,75 @@ def send_file(sock: socket.socket, cipher: CustomCipher):
     # Prompt user for a file path (can be any format)
     input_path = input(TRANSFER_FILE_PATH_PROMPT)
 
-    # Open file and load data in bytes
-    file_content = read_file(file_path=input_path)
+    # Read file by block
+    try:
+        with open(input_path, 'rb') as file:
+            print("=" * 160)
+            print(f"[+] Now transferring the file to [{name}, {ip}]...")
 
-    # Call cipher.encrypt() in partition mode and get encrypted blocks
-    if file_content is not None:
-        print("[+] Now transferring the file to the other host...")
-        encrypted_blocks_list = cipher.encrypt(plaintext=file_content,
-                                               format=FORMAT_FILE,
-                                               partition=True)
+            # Send a signal for File Transfer to the other host
+            sock.send(encrypt(cipher, plain_text=FILE_TRANSFER_SIGNAL, verbose=False))
+            print(f"[+] SIGNAL SENT: A signal has been sent to [{name}, {ip}] to initiate file transfer...")
 
-        # Send a signal for File Transfer to the other host
-        sock.send(encrypt(cipher, plain_text=FILE_TRANSFER_SIGNAL))
-        print("[+] A signal has been sent to the other host to initiate file transfer...")
-
-        # Wait for ACK before proceeding
-        sock.recv(1024)
-
-        # Send the file name to target
-        file_name = input_path.split("/")[-1]
-        sock.send(encrypt(cipher, plain_text=file_name))
-
-        # Wait for ACK before proceeding
-        sock.recv(1024)
-
-        # Print the number of blocks (via. length of list) and send to target
-        total_blocks = len(encrypted_blocks_list)
-        sock.send(encrypt(cipher, plain_text=str(total_blocks)))
-        print(f"[+] Total Number of Blocks (to be sent): {total_blocks}")
-
-        # Wait for ACK before proceeding
-        sock.recv(1024)
-
-        # LOOP: For each encrypted_block (in bytes), send and wait for ACK
-        for index, block in enumerate(encrypted_blocks_list):
-            sock.send(block)
+            # Wait for ACK before proceeding
             sock.recv(1024)
-            print(f"[+] Block {index + 1}/{total_blocks} has been successfully sent and received by the other host.")
 
-        print(f"[+] OPERATION SUCCESSFUL: {file_name} has been successfully sent!")
+            # Determine the total number of blocks from file size
+            total_bytes = os.path.getsize(input_path)
+            total_blocks = total_bytes // cipher.block_size
+            sock.send(encrypt(cipher, plain_text=str(total_blocks), verbose=False))
+            print(f"[+] File Size: {total_bytes} bytes")
+            print(f"[+] Total Number of Blocks (to be sent): {total_blocks}")
+
+            # Wait for ACK before proceeding
+            sock.recv(1024)
+
+            # Send the file name to target
+            file_name = input_path.split("/")[-1]
+            sock.send(encrypt(cipher, plain_text=file_name, verbose=False))
+            print(f"[+] File parameters have been successfully sent to [{name}, {ip}]!")
+
+            # Wait for ACK before proceeding
+            sock.recv(1024)
+
+            # LOOP: Encrypt and send blocks in 4096 byte chunks, wait for ACK before proceeding
+            blocks_sent = 0
+            while True:
+                chunk = file.read(4096)
+
+                if not chunk:  # => End of file (EOF)
+                    break
+
+                encrypted_chunk = cipher.encrypt(plaintext=chunk, format=FORMAT_FILE, verbose=False)
+                sock.sendall(encrypted_chunk)
+
+                sock.recv(1024)  # => Wait for ACK
+
+                blocks_sent += len(chunk) // cipher.block_size
+                print(f"[+] Blocks {blocks_sent}/{total_blocks} has been successfully sent to and "
+                      f"received by [{name}, {ip}]")
+
+            # Send an EOF signal to end file transfer
+            sock.send(encrypt(cipher, plain_text=END_OF_FILE, verbose=False))
+            print(f"[+] OPERATION SUCCESSFUL: {file_name} has been successfully sent!")
+            print("=" * 160)
+
+    except (FileNotFoundError, IsADirectoryError):
+        print("[+] READ FILE ERROR: File not found in the path provided ({})".format(input_path))
+        return None
 
 
-def receive_file(ip_address: str, sock: socket.socket, cipher: CustomCipher):
+def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
     Receives a file from an initiating host.
 
-    @param ip_address:
+    @param name:
+        A string representing the name of the
+        initiating host
+
+    @param ip:
         A string representing the IP address of the
-        connected host
+        initiating host
 
     @param sock:
         A socket object
@@ -563,38 +607,61 @@ def receive_file(ip_address: str, sock: socket.socket, cipher: CustomCipher):
 
     @return: None
     """
-    print(f"[+] FILE TRANSFER: A host ({ip_address}) has initiated file transfer!")
+    def send_ack():
+        """
+        Sends an ACK to the initiating host.
+        @return: None
+        """
+        sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
+
+    print("=" * 160)
+    print(f"[+] FILE TRANSFER: A host [{name}, {ip}] has initiated file transfer!")
 
     # Send ACK to synchronize with the other host
-    sock.send(encrypt(cipher, plain_text=ACK))
-
-    # Receive File Name
-    file_name = decrypt(cipher, cipher_text=sock.recv(1024))
-    print(f"[+] Host ({ip_address}) is transferring the following file: {file_name}")
-
-    # Create a Save Directory for the file ("data/received/host_ip")
-    if not os.path.exists(SAVE_FILE_DIR.format(ip_address)):
-        os.makedirs(SAVE_FILE_DIR.format(ip_address))
-        print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip_address)}")
-
-    # Send ACK to synchronize with the other host
-    sock.send(encrypt(cipher, plain_text=ACK))
+    send_ack()
 
     # Receive total number of blocks
-    total_blocks = decrypt(cipher, cipher_text=sock.recv(1024))
+    total_blocks = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
     print(f"[+] Total Number of Blocks (to be received): {total_blocks}")
 
     # Send ACK to synchronize with the other host
-    sock.send(encrypt(cipher, plain_text=ACK))
+    send_ack()
 
-    # LOOP: Receive and decrypt encrypted blocks and send ACK
-    decrypted_data = b""
-    for i in range(int(total_blocks)):
-        decrypted_block = decrypt(cipher, cipher_text=sock.recv(1024), format=FORMAT_BYTES)  # => Return data as bytes
-        decrypted_data += decrypted_block
-        print(f"[+] Block {i + 1}/{total_blocks} has been successfully received: {decrypted_block.decode()}")
-        sock.send(encrypt(cipher, plain_text=ACK))
+    # Receive File Name
+    file_name = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
+    print(f"[+] Host [{name}, {ip}] is transferring the following file: {file_name}")
 
-    # Save decrypted content into a file
-    new_save_path = os.path.join(SAVE_FILE_DIR.format(ip_address), file_name)
-    write_to_file(new_save_path, data=decrypted_data)
+    # Create a Save Directory for the file ("data/received/host_ip")
+    if not os.path.exists(SAVE_FILE_DIR.format(ip)):
+        os.makedirs(SAVE_FILE_DIR.format(ip))
+        print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip)}")
+
+    # Send ACK to synchronize with the initiating host
+    send_ack()
+
+    # Define a new file path for the received file
+    new_save_path = os.path.join(SAVE_FILE_DIR.format(ip), file_name)
+
+    # LOOP: Receive and decrypt blocks in 4096 byte chunks, send ACK
+    blocks_received = 0
+    with open(new_save_path, 'wb') as file:
+        while True:
+            encrypted_chunk = sock.recv(4096)
+
+            # Decrypt the chunk
+            decrypted_block = cipher.decrypt(ciphertext=encrypted_chunk,
+                                             format=FORMAT_FILE,  # => Return as bytes
+                                             verbose=False)
+            if decrypted_block == b'EOF':
+                break
+
+            file.write(decrypted_block)
+
+            # Send ACK back to receive the next chunk
+            blocks_received += len(encrypted_chunk) // cipher.block_size
+            print(f"[+] Successfully received blocks ({blocks_received}/{total_blocks}) "
+                  f"from [{name}, {ip}]: {decrypted_block}\n")
+            send_ack()
+
+    print(f"[+] OPERATION COMPLETED: The file has been successfully saved to '{new_save_path}'")
+    print("=" * 160)

@@ -335,14 +335,15 @@ def _perform_experiments(experiments: list, criteria: str,
         for i in range(MAX_BIT_CHANGE):
             transformed_plaintext_binary = flip_bits_from_msb(binary_payload, num_bits=i+1)
             experiments.append(cipher.encrypt(binary_to_bytes(transformed_plaintext_binary),
-                                              format=FORMAT_AVALANCHE, verbose=True))
+                                              format=FORMAT_AVALANCHE, avalanche=True))
 
     if criteria == 'SKAC':  # => Plaintext stays constant
         for i in range(MAX_BIT_CHANGE):
             new_key_binary = flip_every_4th_bit(binary_payload, num_bits=i+1)
             cipher.key = binary_to_bytes(new_key_binary)
             cipher.process_subkey_generation(menu_option=1)
-            experiments.append(cipher.encrypt(plaintext.encode(), format=FORMAT_AVALANCHE, verbose=True))
+            experiments.append(cipher.encrypt(plaintext.encode(), format=FORMAT_AVALANCHE,
+                                              verbose=True, avalanche=True))
 
 
 def _analyze_experiments(experiments: list, control: list, criteria: string):
@@ -452,7 +453,7 @@ def _perform_avalanche_spac(UserViewModel: object, criteria: str, option: int,
     cipher.mode = ECB
 
     # Gather data for the control group (no bit changes applied)
-    control = cipher.encrypt(plaintext, format=FORMAT_USER_INPUT, verbose=True)
+    control = cipher.encrypt(plaintext, format=FORMAT_USER_INPUT, avalanche=True, verbose=False)
 
     # Gather data for the experimental group (bit changes in the plaintext)
     plaintext_binary = bytes_to_binary(plaintext.encode())
@@ -517,7 +518,7 @@ def _perform_avalanche_skac(UserViewModel: object, criteria: str, option: int,
     cipher.process_subkey_generation(menu_option=1)
 
     # Gather data for the control group (no bit changes applied)
-    control = cipher.encrypt(plaintext, verbose=True)
+    control = cipher.encrypt(plaintext, avalanche=True, verbose=False)
 
     # Convert key to binary and gather data for bit changes in the plaintext
     key_binary = bytes_to_binary(key)

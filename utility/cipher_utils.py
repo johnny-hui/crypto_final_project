@@ -97,7 +97,7 @@ def unpad_block(block: bytes):
     return block[:-pad_len]
 
 
-def encrypt_block(self: object, block: bytes, verbose=False):
+def encrypt_block(self: object, block: bytes, avalanche=False):
     """
     Encrypts the given block on a per round basis.
 
@@ -111,15 +111,15 @@ def encrypt_block(self: object, block: bytes, verbose=False):
     @param block:
         An array of bytes representing the block to be encrypted
 
-    @param verbose:
-        An optional boolean flag to turn on verbose mode;
-        used for avalanche analysis (default=False)
+    @param avalanche:
+        An optional boolean flag to encrypt 1 block for
+        avalanche analysis (default=False)
 
     @return: encrypted_block
         The encrypted left and right halves concatenated (string)
     """
     # Add initial block for verbose mode
-    round_data = [block] if verbose else None
+    round_data = [block] if avalanche else None
 
     # Split block into two halves
     half_length = len(block) // 2
@@ -133,13 +133,13 @@ def encrypt_block(self: object, block: bytes, verbose=False):
         # XOR the result of round function and left half (converted to ASCII values)
         right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey))])
 
-        if verbose:  # Add intermediate cipher blocks (if verbose)
+        if avalanche:  # Add intermediate cipher blocks (if verbose)
             round_data.append(left_half + right_half)
 
     # Swap halves for final ciphertext
     final_cipher = right_half + left_half
 
-    if verbose:  # Add final ciphertext
+    if avalanche:  # Add final ciphertext
         round_data.append(final_cipher)
         return round_data
 

@@ -106,7 +106,10 @@ class Client:
 
                     if command == 2:
                         if self.is_connected and self.server_socket is not None:
-                            send_file(self.server_socket, self.cipher)
+                            self.fd_list.remove(self.server_socket)
+                            send_file(name=self.server_name, ip=self.server_socket.getpeername()[0],
+                                      sock=self.server_socket, cipher=self.cipher)
+                            self.fd_list.append(self.server_socket)
                         else:
                             view_current_connections(self)
 

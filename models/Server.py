@@ -101,8 +101,10 @@ class Server:
                         send_message(client_sock, cipher)
 
                     if command == 2:
-                        client_sock, cipher = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
-                        send_file(client_sock, cipher)
+                        client_sock, cipher, ip, name = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
+                        self.fd_list.remove(client_sock)
+                        send_file(ip, name, client_sock, cipher)
+                        self.fd_list.append(client_sock)
 
                     if command == 3:
                         view_current_connections(self, is_server=True)
@@ -148,13 +150,15 @@ class Server:
                     # Get information of the client (from dictionary)
                     ip, info = list(self.client_dict.items())[client_index - 1]
                     cipher = info[-1]
+                    name = info[0]
 
                     # Iterate over the list of sockets and find the corresponding one
                     for socket in self.fd_list[1:]:
                         if socket.getpeername()[0] == ip:
-                            return socket, cipher
+                            return socket, cipher, ip, name
+
                 except (ValueError, TypeError) as e:
                     print(f"[+] ERROR: An invalid selection provided ({e}); please enter again.")
         else:
             print("[+] ERROR: There are currently no connected clients to send message!")
-            return None, None
+            return None, None, None, None

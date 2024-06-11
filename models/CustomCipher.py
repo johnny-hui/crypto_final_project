@@ -95,7 +95,7 @@ class CustomCipher:
         return hashed_result[23:31]
 
     def encrypt(self, plaintext: str | bytes, format=None,
-                playground=False, partition=False, verbose=False):
+                playground=False, avalanche=False, verbose=True):
         """
         Encrypts plaintext to ciphertext using a 16-round
         Feistel architecture.
@@ -116,14 +116,12 @@ class CustomCipher:
             A boolean that determines whether playground mode is on
             (default=False)
 
-        @param partition:
-            A boolean that determines whether to partition the resulting
-            ciphertext into blocks instead of returning it as a whole
-            (default=False)
+        @param avalanche:
+            An optional boolean flag to turn on avalanche mode;
+            which only performs 1 round of ECB encryption (default=False)
 
         @param verbose:
-            An optional boolean flag to turn on verbose mode;
-            used for avalanche analysis (default=False)
+            A boolean flag to turn on verbose mode (default=True)
 
         @return: ciphertext or round_data
             The encrypted plaintext (bytes[]); or if verbose
@@ -131,7 +129,6 @@ class CustomCipher:
         """
         # Initialize Variables
         ciphertext = b''
-        blocks = []
 
         if is_sub_keys_generated(self.sub_keys, operation=OP_ENCRYPT) is False:
             return None
@@ -141,7 +138,7 @@ class CustomCipher:
             plaintext = plaintext.encode()
 
         if self.mode == ECB:
-            if not verbose:  # Don't print if verbose (during avalanche analysis)
+            if verbose:
                 print("[+] ECB ENCRYPTION: Now encrypting plaintext in ECB mode...")
 
             # Partition the plaintext into blocks and encrypt each block
@@ -151,18 +148,16 @@ class CustomCipher:
                 if len(block) < self.block_size:  # Pad block to 64 bits
                     block = pad_block(self.block_size, block)
 
-                if verbose:  # For avalanche analysis (1 block only)
-                    round_data = encrypt_block(self, block, verbose=True)
+                if avalanche:  # For avalanche analysis (1 block only)
+                    round_data = encrypt_block(self, block, avalanche=True)
                     round_data.append(self.key)
                     return round_data
 
-                if partition:
-                    blocks.append(encrypt_block(self, block))
-                else:
-                    ciphertext += encrypt_block(self, block)
+                ciphertext += encrypt_block(self, block)
 
         if self.mode == CBC:
-            print("[+] CBC ENCRYPTION: Now encrypting plaintext in CBC mode...")
+            if verbose:
+                print("[+] CBC ENCRYPTION: Now encrypting plaintext in CBC mode...")
 
             # If in playground mode, generate IV
             if playground:
@@ -179,16 +174,12 @@ class CustomCipher:
                 block = bytes([a ^ b for a, b in zip(previous_block, block)])  # XOR with previous block
                 encrypted_block = encrypt_block(self, block)
 
-                if partition:
-                    blocks.append(encrypted_block)
-                else:
-                    ciphertext += encrypted_block
-
+                ciphertext += encrypted_block
                 previous_block = encrypted_block
 
-        return ciphertext if not partition else blocks
+        return ciphertext
 
-    def decrypt(self, ciphertext: bytes, playground=False, format=None):
+    def decrypt(self, ciphertext: bytes, playground=False, format=None, verbose=True):
         """
         Decrypts ciphertext back into plaintext (or bytes)
         using a 16-round Feistel architecture.
@@ -203,6 +194,9 @@ class CustomCipher:
             A string representing the format to be encrypted
             (FORMAT_USER_INPUT, FORMAT_TEXT_FILE, or FORMAT_PICTURE)
 
+        @param verbose:
+            A boolean flag to turn on verbose mode (default=True)
+
         @return: plaintext
             The decrypted plaintext (string)
         """
@@ -213,7 +207,8 @@ class CustomCipher:
             return None
 
         if self.mode == ECB:
-            print("[+] ECB DECRYPTION: Now decrypting plaintext in ECB mode...")
+            if verbose:
+                print("[+] ECB DECRYPTION: Now decrypting plaintext in ECB mode...")
 
             # Partition the ciphertext into blocks and decrypt each block
             for i in range(0, len(ciphertext), self.block_size):
@@ -222,7 +217,8 @@ class CustomCipher:
                 plaintext_bytes += decrypted_block
 
         if self.mode == CBC:
-            print("[+] CBC DECRYPTION: Now decrypting ciphertext in CBC mode...")
+            if verbose:
+                print("[+] CBC DECRYPTION: Now decrypting ciphertext in CBC mode...")
 
             # Get IV from class attribute
             previous_block = self.iv

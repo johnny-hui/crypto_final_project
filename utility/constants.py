@@ -149,8 +149,8 @@ USER_DECRYPT_OPTIONS = [
 
 
 # AVALANCHE ANALYSIS CONSTANTS
-AVALANCHE_ANALYSIS_SPAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own plaintext message (64-bit or 8 char "
-                                  "only; Enter 2 to use generated plaintext message; or (Enter 0 to quit): ")
+AVALANCHE_ANALYSIS_SPAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own plaintext message (128-bit or "
+                                  "16 char only; Enter 2 to use generated plaintext message; or (Enter 0 to quit): ")
 AVALANCHE_ANALYSIS_SKAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own key (128-bit or 16 char) "
                                   "only; Enter 2 to use a randomly generated a key (from an Elliptic Curve: "
                                   "brainpoolP256r1); or (Enter 0 to quit): ")
@@ -189,6 +189,7 @@ SELECT_CLIENT_SEND_MSG_PROMPT = "\n[+] Select a specific client to send a messag
 SELECT_CLIENT_SEND_FILE_PROMPT = "\n[+] Select a specific client to transfer a file to (enter a number from {} to {}): "
 TRANSFER_FILE_PATH_PROMPT = "[+] Please enter the path of the file to transfer: "
 FILE_TRANSFER_SIGNAL = "FILE TRANSFER"
+END_OF_FILE = "EOF"
 
 
 # OTHER CONSTANTS
