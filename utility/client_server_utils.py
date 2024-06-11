@@ -190,10 +190,7 @@ def get_user_menu_option(fd: TextIO, min_num_options: int, max_num_options: int)
             command = fd.readline().strip()
         print(MENU_ACTION_START_MSG.format(command))
         return command
-    except ValueError as e:
-        print(INVALID_INPUT_MENU_ERROR.format(e))
-        print(INVALID_MENU_SELECTION.format(min_num_options, max_num_options))
-    except TypeError as e:
+    except (ValueError, TypeError) as e:
         print(INVALID_INPUT_MENU_ERROR.format(e))
         print(INVALID_MENU_SELECTION.format(min_num_options, max_num_options))
 
@@ -642,25 +639,25 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     # Define a new file path for the received file
     new_save_path = os.path.join(SAVE_FILE_DIR.format(ip), file_name)
 
-    # LOOP: Receive and decrypt blocks in 4096 byte chunks, send ACK
+    # LOOP: Receive and decrypt blocks in 4096 byte chunks, write to file, and send ACK
     blocks_received = 0
     with open(new_save_path, 'wb') as file:
         while True:
             encrypted_chunk = sock.recv(4096)
 
             # Decrypt the chunk
-            decrypted_block = cipher.decrypt(ciphertext=encrypted_chunk,
+            decrypted_chunk = cipher.decrypt(ciphertext=encrypted_chunk,
                                              format=FORMAT_FILE,  # => Return as bytes
                                              verbose=False)
-            if decrypted_block == b'EOF':
+            if decrypted_chunk == b'EOF':
                 break
 
-            file.write(decrypted_block)
+            file.write(decrypted_chunk)
 
             # Send ACK back to receive the next chunk
             blocks_received += len(encrypted_chunk) // cipher.block_size
             print(f"[+] Successfully received blocks ({blocks_received}/{total_blocks}) "
-                  f"from [{name}, {ip}]: {decrypted_block}\n")
+                  f"from [{name}, {ip}]: {decrypted_chunk}\n")
             send_ack()
 
     print(f"[+] OPERATION COMPLETED: The file has been successfully saved to '{new_save_path}'")

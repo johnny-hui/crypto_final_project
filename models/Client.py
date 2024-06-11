@@ -95,52 +95,65 @@ class Client:
             # Get User Command from the Menu and perform the task
             for fd in readable:
                 if fd == sys.stdin:
-                    # TODO: Refactor menu command (if connected vs. not connected using lambdas)
                     command = get_user_menu_option(fd, CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE)
+                    self.__handle_command(command)
 
-                    if command == 1:
-                        if self.is_connected and self.server_socket is not None:
-                            send_message(self.server_socket, self.cipher)
-                        else:
-                            connect_to_server(self)
+    def __handle_command(self, command: int):
+        """
+        Handles and performs user menu command options
+        for the Client.
 
-                    if command == 2:
-                        if self.is_connected and self.server_socket is not None:
-                            self.fd_list.remove(self.server_socket)
-                            send_file(name=self.server_name, ip=self.server_socket.getpeername()[0],
-                                      sock=self.server_socket, cipher=self.cipher)
-                            self.fd_list.append(self.server_socket)
-                        else:
-                            view_current_connections(self)
+        @param command:
+            An integer representing the menu option
+            to be performed
 
-                    if command == 3:
-                        if self.is_connected and self.server_socket is not None:
-                            view_current_connections(self)
-                        else:
-                            self.__change_cipher_mode()
+        @return: None
+        """
+        def send_file_to_server():
+            self.fd_list.remove(self.server_socket)
+            send_file(name=self.server_name, ip=self.server_socket.getpeername()[0],
+                      sock=self.server_socket, cipher=self.cipher)
+            self.fd_list.append(self.server_socket)
 
-                    if command == 4:
-                        if self.is_connected and self.server_socket is not None:
-                            self.__change_cipher_mode()
-                        else:
-                            CipherPlayground().start()
+        def terminate_application():
+            close_application(self)
+            print(USER_MENU_THREAD_TERMINATE)
 
-                    if command == 5:
-                        if self.is_connected and self.server_socket is not None:
-                            CipherPlayground().start()
-                        else:
-                            close_application(self)
-                            print(USER_MENU_THREAD_TERMINATE)
-                            return None
+        def perform_post_action_steps():
+            # If terminate application, don't print the menu again
+            if (self.is_connected and command == 6) or (not self.is_connected and command == 5):
+                return None
+            display_menu(self.is_connected)
+            print(INPUT_PROMPT)
 
-                    if command == 6:
-                        if self.is_connected and self.server_socket is not None:
-                            close_application(self)
-                            print(USER_MENU_THREAD_TERMINATE)
-                            return None
+        # Map command to functions for when the client is connected or not connected
+        actions_when_connected = {
+            1: lambda: send_message(self.server_socket, self.cipher),
+            2: lambda: send_file_to_server(),
+            3: lambda: view_current_connections(self),
+            4: lambda: self.__change_cipher_mode(),
+            5: lambda: CipherPlayground().start(),
+            6: lambda: terminate_application(),
+        }
 
-                display_menu(self.is_connected)
-                print(INPUT_PROMPT)
+        actions_when_not_connected = {
+            1: lambda: connect_to_server(self),
+            2: lambda: view_current_connections(self),
+            3: lambda: self.__change_cipher_mode(),
+            4: lambda: CipherPlayground().start(),
+            5: lambda: terminate_application(),
+        }
+
+        # Get action corresponding to the command
+        if self.is_connected and self.server_socket is not None:
+            action = actions_when_connected.get(command)
+        else:
+            action = actions_when_not_connected.get(command)
+
+        # Perform the action
+        if action:
+            action()
+            perform_post_action_steps()
 
     def __change_cipher_mode(self):
         """

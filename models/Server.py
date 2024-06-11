@@ -45,6 +45,17 @@ class Server:
         self.terminate = False
         print(INIT_SUCCESS_MSG)
 
+    def __start_user_menu_thread(self):
+        """
+        Starts a thread for handling user input
+        for the menu.
+
+        @return: None
+        """
+        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
+        input_thread.start()
+        print(USER_INPUT_START_MSG)
+
     def start(self):
         """
         Starts the server and monitors any incoming connections
@@ -65,17 +76,6 @@ class Server:
                 else:
                     receive_data(self, sock, is_server=True)
 
-    def __start_user_menu_thread(self):
-        """
-        Starts a thread for handling user input
-        for the menu.
-
-        @return: None
-        """
-        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
-        input_thread.start()
-        print(USER_INPUT_START_MSG)
-
     def __menu(self):
         """
         Displays the menu and handles user input
@@ -95,30 +95,57 @@ class Server:
             for fd in readable:
                 if fd == sys.stdin:
                     command = get_user_menu_option(fd, SERVER_MIN_MENU_ITEM_VALUE, SERVER_MAX_MENU_ITEM_VALUE)
+                    self.__handle_command(command)
 
-                    if command == 1:
-                        client_sock, cipher = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_MSG_PROMPT)
-                        send_message(client_sock, cipher)
+    def __handle_command(self, command: int):
+        """
+        Handles and performs user menu command options
+        for the Server.
 
-                    if command == 2:
-                        client_sock, cipher, ip, name = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
-                        self.fd_list.remove(client_sock)
-                        send_file(ip, name, client_sock, cipher)
-                        self.fd_list.append(client_sock)
+        @param command:
+            An integer representing the menu option
+            to be performed
 
-                    if command == 3:
-                        view_current_connections(self, is_server=True)
+        @return: None
+        """
+        def send_message_to_specific_client():
+            client_sock, cipher, _, _ = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_MSG_PROMPT)
+            send_message(client_sock, cipher)
 
-                    if command == 4:
-                        CipherPlayground().start()
+        def send_file_to_specific_client():
+            client_sock, cipher, ip, name = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
+            if client_sock is not None:
+                self.fd_list.remove(client_sock)
+                send_file(ip, name, client_sock, cipher)
+                self.fd_list.append(client_sock)
 
-                    if command == 5:
-                        close_application(self)
-                        print(USER_MENU_THREAD_TERMINATE)
-                        return None
+        def terminate_application():
+            close_application(self)
+            print(USER_MENU_THREAD_TERMINATE)
 
-                display_menu(is_server=True)
-                print(INPUT_PROMPT)
+        def perform_post_action_steps():
+            # If terminate application, don't print the menu again
+            if command == 5:
+                return None
+            display_menu(is_server=True)
+            print(INPUT_PROMPT)
+
+        # Map command to functions
+        actions = {
+            1: lambda: send_message_to_specific_client(),
+            2: lambda: send_file_to_specific_client(),
+            3: lambda: view_current_connections(self, is_server=True),
+            4: lambda: CipherPlayground().start(),
+            5: lambda: terminate_application(),
+        }
+
+        # Get action corresponding to the user-selected command
+        action = actions.get(command)
+
+        # Perform the action
+        if action:
+            action()
+            perform_post_action_steps()
 
     def __get_specific_client(self, prompt: str):
         """
@@ -160,5 +187,5 @@ class Server:
                 except (ValueError, TypeError) as e:
                     print(f"[+] ERROR: An invalid selection provided ({e}); please enter again.")
         else:
-            print("[+] ERROR: There are currently no connected clients to send message!")
+            print("[+] ERROR: There are currently no connected clients to perform the selected option!")
             return None, None, None, None
