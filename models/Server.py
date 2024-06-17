@@ -1,7 +1,6 @@
 import select
 import sys
 import threading
-
 from models.CipherPlayground import CipherPlayground
 from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import (accept_new_connection_handler, display_menu, receive_data,
@@ -119,9 +118,7 @@ class Server:
                 return None
             else:
                 send_type = get_user_command_option(opt_range=tuple(range(3)), msg=SEND_FILE_MODE_PROMPT)
-                if send_type == 0:  # To quit
-                    return None
-                if client_sock is not None:
+                if send_type != 0:
                     self.fd_list.remove(client_sock)
                     if send_type == 1:
                         send_file(ip, name, client_sock, cipher)

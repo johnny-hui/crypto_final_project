@@ -1,7 +1,7 @@
 """
 Description:
-This Python file contains utility functions used by Client and Server
-classes.
+This Python file contains utility functions used by Client
+and Server classes.
 
 """
 import gc
@@ -446,6 +446,43 @@ def send_message(sock: socket.socket, cipher: CustomCipher):
         print("[+] Your message has been successfully sent!")
 
 
+def host_disconnect_handler(self: object, sock: socket.socket,
+                            name: str, ip: str, is_server: bool):
+    """
+    A host disconnect handler that removes any previously
+    connected host's state and resets parameters to default.
+
+    @param self:
+        A reference to the calling class object (Server or Client)
+
+    @param sock:
+        The socket object of the disconnected host
+
+    @param name:
+        A string for the name of the disconnected host
+
+    @param ip:
+        A string for the IP address of the disconnected host
+
+    @param is_server:
+        A boolean to determine if calling class is Server or Client
+
+    @return: None
+    """
+    if is_server:
+        del self.client_dict[ip]
+    else:
+        del self.cipher
+        self.is_connected = False
+        self.server_socket, self.server_name, self.shared_secret, self.cipher = (None, None, None, None)
+
+    # Perform cleanup
+    print(f"[+] Connection closed by ({name}, {ip})")
+    self.fd_list.remove(sock)
+    sock.close()
+    gc.collect()  # => Garbage collection for saved CustomCipher objects
+
+
 def receive_data(self: object, sock: socket.socket, is_server: bool = False):
     """
     Handles the receiving of data (or disconnections) from a socket.
@@ -472,7 +509,7 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
 
     # Handler for Server
     if is_server:
-        client_info = self.client_dict[ip_address]  # => Get client info (and their corresponding cipher)
+        client_info = self.client_dict[ip_address]  # => Get client info (and the corresponding cipher)
         if data:
             print(f"[+] Received data from [{client_info[0]}, {ip_address}] (encrypted): {data}")
             plain_text = decrypt(cipher=client_info[-1], cipher_text=data)
@@ -484,11 +521,7 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             if plain_text == FILE_TRANSFER_BULK_SIGNAL:
                 receive_file_bulk(name=client_info[0], ip=ip_address, sock=sock, cipher=client_info[-1])
         else:
-            print(f"[+] Connection closed by ({client_info[0]}, {ip_address})")
-            del self.client_dict[ip_address]
-            self.fd_list.remove(sock)
-            sock.close()
-            gc.collect()  # Perform garbage collection for saved cipher objects
+            host_disconnect_handler(self, sock, client_info[0], ip_address, is_server=True)
 
     # Handler for Client
     else:
@@ -503,18 +536,12 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             if plain_text == FILE_TRANSFER_BULK_SIGNAL:
                 receive_file_bulk(name=self.server_name, ip=ip_address, sock=sock, cipher=self.cipher)
         else:
-            print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
-            del self.cipher
-            self.is_connected = False
-            self.server_socket, self.server_name, self.shared_secret, self.cipher = (None, None, None, None)
-            self.fd_list.remove(sock)
-            sock.close()
-            gc.collect()
+            host_disconnect_handler(self, sock, self.server_name, ip_address, is_server=False)
 
 
 def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
-    Sends a file to the target host.
+    Sends a file to the target host (in chunks).
 
     @param name:
         A string representing the name of
@@ -598,7 +625,7 @@ def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
 
 def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
-    Receives a file from an initiating host.
+    Receives a file from an initiating host (in chunks).
 
     @param name:
         A string representing the name of the
@@ -616,25 +643,18 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
 
     @return: None
     """
-    def send_ack():
-        """
-        Sends an ACK to the initiating host.
-        @return: None
-        """
-        sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
-
     print("=" * 160)
     print(f"[+] FILE TRANSFER: A host [{name}, {ip}] has initiated file transfer!")
 
     # Send ACK to synchronize with the other host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Receive total number of blocks
     total_blocks = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
     print(f"[+] Total Number of Blocks (to be received): {total_blocks}")
 
     # Send ACK to synchronize with the other host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Receive File Name
     file_name = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
@@ -646,7 +666,7 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
         print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip)}")
 
     # Send ACK to synchronize with the initiating host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Define a new file path for the received file
     new_save_path = os.path.join(SAVE_FILE_DIR.format(ip), file_name)
@@ -656,8 +676,6 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     with open(new_save_path, 'wb') as file:
         while True:
             encrypted_chunk = sock.recv(4096)
-
-            # Decrypt the chunk
             decrypted_chunk = cipher.decrypt(ciphertext=encrypted_chunk,
                                              format=FORMAT_FILE,  # => Return as bytes
                                              verbose=False)
@@ -670,13 +688,32 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
             blocks_received += len(encrypted_chunk) // cipher.block_size
             print(f"[+] Successfully received blocks ({blocks_received}/{total_blocks}) "
                   f"from [{name}, {ip}]: {decrypted_chunk}\n")
-            send_ack()
+            sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     print(f"[+] OPERATION COMPLETED: The file has been successfully saved to '{new_save_path}'")
     print("=" * 160)
 
 
 def send_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
+    """
+    Sends a file to the target host (as a whole).
+
+    @param name:
+        A string representing the name of
+        the target host
+
+    @param ip:
+        A string representing the IP address
+        of the target host
+
+    @param sock:
+        A target socket object
+
+    @param cipher:
+        A CustomCipher object
+
+    @return: None
+    """
     if sock is None and cipher is None:
         return None
 
@@ -719,25 +756,36 @@ def send_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCipher
             sock.sendall(encrypted_data)
             print(f"[+] OPERATION COMPLETED: The file has been sent successfully to [{name}, {ip}]!")
             print("=" * 160)
-
     except (FileNotFoundError, IsADirectoryError):
         print("[+] READ FILE ERROR: File not found in the path provided ({})".format(input_path))
         return None
 
 
 def receive_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
-    def send_ack():
-        """
-        Sends an ACK to the initiating host.
-        @return: None
-        """
-        sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
+    """
+    Receives a file from an initiating host (as a whole).
 
+    @param name:
+        A string representing the name of the
+        initiating host
+
+    @param ip:
+        A string representing the IP address of the
+        initiating host
+
+    @param sock:
+        A socket object
+
+    @param cipher:
+        A CustomCipher object
+
+    @return: None
+    """
     print("=" * 160)
     print(f"[+] FILE TRANSFER: A host [{name}, {ip}] has initiated file transfer!")
 
     # Send ACK to synchronize with the other host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Receive File Name
     file_name = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
@@ -749,14 +797,14 @@ def receive_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCip
         print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip)}")
 
     # Send ACK to synchronize with the other host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Receive the payload size
     file_size = int.from_bytes(sock.recv(8), 'big')
     print(f"[+] File payload size: {file_size} bytes")
 
     # Send ACK to synchronize with the other host
-    send_ack()
+    sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
 
     # Receive the payload in bulk
     received_data = b''
