@@ -3,13 +3,14 @@ import sys
 import threading
 
 from models.CipherPlayground import CipherPlayground
+from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import (accept_new_connection_handler, display_menu, receive_data,
                                          get_user_menu_option, close_application, view_current_connections,
-                                         send_message, send_file)
+                                         send_message, send_file, send_file_bulk)
 from utility.constants import INIT_SERVER_MSG, INIT_SUCCESS_MSG, MODE_SERVER, INPUT_PROMPT, USER_INPUT_THREAD_NAME, \
     USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, \
     SELECT_ONE_SECOND_TIMEOUT, SELECT_CLIENT_SEND_MSG_PROMPT, SERVER_MAX_MENU_ITEM_VALUE, \
-    SERVER_MIN_MENU_ITEM_VALUE, SELECT_CLIENT_SEND_FILE_PROMPT
+    SERVER_MIN_MENU_ITEM_VALUE, SELECT_CLIENT_SEND_FILE_PROMPT, SEND_FILE_MODE_PROMPT
 from utility.ec_keys_utils import generate_keys
 from utility.init import parse_arguments, initialize_socket
 
@@ -114,23 +115,30 @@ class Server:
 
         def send_file_to_specific_client():
             client_sock, cipher, ip, name = self.__get_specific_client(prompt=SELECT_CLIENT_SEND_FILE_PROMPT)
-            if client_sock is not None:
-                self.fd_list.remove(client_sock)
-                send_file(ip, name, client_sock, cipher)
-                self.fd_list.append(client_sock)
+            if client_sock is None:
+                return None
+            else:
+                send_type = get_user_command_option(opt_range=tuple(range(3)), msg=SEND_FILE_MODE_PROMPT)
+                if send_type == 0:  # To quit
+                    return None
+                if client_sock is not None:
+                    self.fd_list.remove(client_sock)
+                    if send_type == 1:
+                        send_file(ip, name, client_sock, cipher)
+                    elif send_type == 2:
+                        send_file_bulk(ip, name, client_sock, cipher)
+                    self.fd_list.append(client_sock)
 
         def terminate_application():
             close_application(self)
             print(USER_MENU_THREAD_TERMINATE)
 
         def perform_post_action_steps():
-            # If terminate application, don't print the menu again
-            if command == 5:
+            if command == 5:  # If terminate application, don't print the menu again
                 return None
             display_menu(is_server=True)
             print(INPUT_PROMPT)
 
-        # Map command to functions
         actions = {
             1: lambda: send_message_to_specific_client(),
             2: lambda: send_file_to_specific_client(),
@@ -138,11 +146,7 @@ class Server:
             4: lambda: CipherPlayground().start(),
             5: lambda: terminate_application(),
         }
-
-        # Get action corresponding to the user-selected command
         action = actions.get(command)
-
-        # Perform the action
         if action:
             action()
             perform_post_action_steps()

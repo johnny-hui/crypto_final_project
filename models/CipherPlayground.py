@@ -11,9 +11,12 @@ from utility.ec_keys_utils import generate_shared_secret
 
 
 class CipherPlayground:
-    """A class that enables users to experiment with the CustomCipher,
-    including encrypting/decrypting of various formats (user input, text and image files),
-    changing encryption modes (ECB or CBC), and analyzing the avalanche effect (SPAC and SKAC).
+    """
+    This class allows users to experiment with the CustomCipher.
+
+    Users can encrypt/decrypt various formats such as user input, text and image files.
+    Additionally, they can change encryption modes (ECB or CBC) and analyze the diffusion
+    and confusion properties using avalanche effects (SPAC and SKAC).
 
     Attributes:
         table - A table containing several user menu options

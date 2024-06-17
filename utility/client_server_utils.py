@@ -1,3 +1,9 @@
+"""
+Description:
+This Python file contains utility functions used by Client and Server
+classes.
+
+"""
 import gc
 import ipaddress
 import os
@@ -9,6 +15,7 @@ from typing import TextIO
 from prettytable import PrettyTable
 from tinyec.ec import Inf
 from models.CustomCipher import CustomCipher
+from utility.cipher_utils import write_to_file
 from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, CLIENT_MENU_OPTIONS_LIST,
                                SERVER_MENU_OPTIONS_LIST, INVALID_MENU_SELECTION,
                                MENU_ACTION_START_MSG, INVALID_INPUT_MENU_ERROR, MIN_PORT_VALUE,
@@ -16,7 +23,8 @@ from utility.constants import (MENU_TITLE, MENU_FIELD_OPTION, MENU_FIELD_DESC, C
                                CONNECTION_INFO_FIELD_SECRET, CONNECTION_INFO_FIELD_IV, CONNECTION_INFO_TITLE, CBC,
                                BLOCK_SIZE, CONNECTION_INFO_FIELD_CIPHER_MODE, MODE_SERVER, MODE_CLIENT,
                                CLIENT_MENU_CONNECTED_OPTIONS_LIST, TRANSFER_FILE_PATH_PROMPT, FORMAT_FILE,
-                               FILE_TRANSFER_SIGNAL, FORMAT_BYTES, ACK, SAVE_FILE_DIR, END_OF_FILE)
+                               FILE_TRANSFER_SIGNAL, FORMAT_BYTES, ACK, SAVE_FILE_DIR, END_OF_FILE,
+                               FILE_TRANSFER_BULK_SIGNAL)
 from utility.ec_keys_utils import derive_shared_secret, compress
 
 
@@ -473,6 +481,8 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             # File Transfer Handler
             if plain_text == FILE_TRANSFER_SIGNAL:
                 receive_file(name=client_info[0], ip=ip_address, sock=sock, cipher=client_info[-1])
+            if plain_text == FILE_TRANSFER_BULK_SIGNAL:
+                receive_file_bulk(name=client_info[0], ip=ip_address, sock=sock, cipher=client_info[-1])
         else:
             print(f"[+] Connection closed by ({client_info[0]}, {ip_address})")
             del self.client_dict[ip_address]
@@ -490,6 +500,8 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
             # File Transfer Handler
             if plain_text == FILE_TRANSFER_SIGNAL:
                 receive_file(name=self.server_name, ip=ip_address, sock=sock, cipher=self.cipher)
+            if plain_text == FILE_TRANSFER_BULK_SIGNAL:
+                receive_file_bulk(name=self.server_name, ip=ip_address, sock=sock, cipher=self.cipher)
         else:
             print(f"[+] Connection closed by ({self.server_name}, {ip_address})")
             del self.cipher
@@ -530,7 +542,7 @@ def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     try:
         with open(input_path, 'rb') as file:
             print("=" * 160)
-            print(f"[+] Now transferring the file to [{name}, {ip}]...")
+            print(f"[+] Now transferring the file to [{name}, {ip}] (in chunks)...")
 
             # Send a signal for File Transfer to the other host
             sock.send(encrypt(cipher, plain_text=FILE_TRANSFER_SIGNAL, verbose=False))
@@ -552,7 +564,7 @@ def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
             # Send the file name to target
             file_name = input_path.split("/")[-1]
             sock.send(encrypt(cipher, plain_text=file_name, verbose=False))
-            print(f"[+] File parameters have been successfully sent to [{name}, {ip}]!")
+            print(f"[+] File parameters have been successfully sent to [{name}, {ip}]")
 
             # Wait for ACK before proceeding
             sock.recv(1024)
@@ -661,4 +673,103 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
             send_ack()
 
     print(f"[+] OPERATION COMPLETED: The file has been successfully saved to '{new_save_path}'")
+    print("=" * 160)
+
+
+def send_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
+    if sock is None and cipher is None:
+        return None
+
+    # Prompt user for a file path (can be any file format)
+    input_path = input(TRANSFER_FILE_PATH_PROMPT)
+
+    try:
+        with open(input_path, 'rb') as f:
+            print("=" * 160)
+            print(f"[+] Now transferring the file to [{name}, {ip}] (in bulk)...")
+
+            # Read the file and perform bulk encryption
+            file_data = f.read()
+            encrypted_data = encrypt(cipher, plain_text=file_data, format=FORMAT_FILE, verbose=False)
+
+            # Send a signal for bulk file transfer to the other host
+            sock.send(encrypt(cipher, plain_text=FILE_TRANSFER_BULK_SIGNAL, verbose=False))
+            print(f"[+] SIGNAL SENT: A signal has been sent to [{name}, {ip}] to initiate file transfer...")
+
+            # Wait for ACK before proceeding
+            sock.recv(1024)
+
+            # Send the file name to target
+            file_name = input_path.split("/")[-1]
+            sock.send(encrypt(cipher, plain_text=file_name, verbose=False))
+
+            # Wait for ACK before proceeding
+            sock.recv(1024)
+
+            # Send the payload size
+            payload_size = len(encrypted_data)
+            sock.sendall(payload_size.to_bytes(8, 'big'))
+            print(f"[+] File Payload Size: {payload_size} bytes")
+            print(f"[+] File parameters have been successfully sent to [{name}, {ip}]")
+
+            # Wait for ACK before proceeding
+            sock.recv(1024)
+
+            # Send the payload in bulk
+            sock.sendall(encrypted_data)
+            print(f"[+] OPERATION COMPLETED: The file has been sent successfully to [{name}, {ip}]!")
+            print("=" * 160)
+
+    except (FileNotFoundError, IsADirectoryError):
+        print("[+] READ FILE ERROR: File not found in the path provided ({})".format(input_path))
+        return None
+
+
+def receive_file_bulk(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
+    def send_ack():
+        """
+        Sends an ACK to the initiating host.
+        @return: None
+        """
+        sock.send(encrypt(cipher, plain_text=ACK, verbose=False))
+
+    print("=" * 160)
+    print(f"[+] FILE TRANSFER: A host [{name}, {ip}] has initiated file transfer!")
+
+    # Send ACK to synchronize with the other host
+    send_ack()
+
+    # Receive File Name
+    file_name = decrypt(cipher, cipher_text=sock.recv(1024), verbose=False)
+    print(f"[+] Host [{name}, {ip}] is transferring the following file: {file_name}")
+
+    # Create a Save Directory for the file ("data/received/host_ip")
+    if not os.path.exists(SAVE_FILE_DIR.format(ip)):
+        os.makedirs(SAVE_FILE_DIR.format(ip))
+        print(f"[+] The following directory has been created: {SAVE_FILE_DIR.format(ip)}")
+
+    # Send ACK to synchronize with the other host
+    send_ack()
+
+    # Receive the payload size
+    file_size = int.from_bytes(sock.recv(8), 'big')
+    print(f"[+] File payload size: {file_size} bytes")
+
+    # Send ACK to synchronize with the other host
+    send_ack()
+
+    # Receive the payload in bulk
+    received_data = b''
+    while len(received_data) < file_size:
+        data = sock.recv(1024)
+        if not data:
+            break
+        received_data += data
+
+    # Decrypt the payload and define a new save path for file
+    decrypted_data = decrypt(cipher, cipher_text=received_data, format=FORMAT_BYTES, verbose=False)
+    new_save_path = os.path.join(SAVE_FILE_DIR.format(ip), file_name)
+
+    # Save the decrypted file
+    write_to_file(new_save_path, decrypted_data)
     print("=" * 160)

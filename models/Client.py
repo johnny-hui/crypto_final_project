@@ -4,10 +4,12 @@ import threading
 from models.CipherPlayground import CipherPlayground
 from utility.cipher_utils import get_user_command_option
 from utility.client_server_utils import (display_menu, get_user_menu_option, send_message, connect_to_server,
-                                         receive_data, view_current_connections, close_application, send_file)
+                                         receive_data, view_current_connections, close_application, send_file,
+                                         send_file_bulk)
 from utility.constants import (INPUT_PROMPT, INIT_CLIENT_MSG, INIT_SUCCESS_MSG, MODE_CLIENT, USER_INPUT_THREAD_NAME,
                                USER_INPUT_START_MSG, USER_MENU_THREAD_TERMINATE, SELECT_ONE_SECOND_TIMEOUT,
-                               CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE, CBC, CIPHER_MODE_PROMPT, ECB)
+                               CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE, CBC, CIPHER_MODE_PROMPT, ECB,
+                               SEND_FILE_MODE_PROMPT)
 from utility.ec_keys_utils import generate_keys
 from utility.init import parse_arguments
 
@@ -109,11 +111,20 @@ class Client:
 
         @return: None
         """
+
         def send_file_to_server():
-            self.fd_list.remove(self.server_socket)
-            send_file(name=self.server_name, ip=self.server_socket.getpeername()[0],
-                      sock=self.server_socket, cipher=self.cipher)
-            self.fd_list.append(self.server_socket)
+            send_type = get_user_command_option(opt_range=tuple(range(3)), msg=SEND_FILE_MODE_PROMPT)
+            if send_type == 0:  # To quit
+                return None
+            else:
+                self.fd_list.remove(self.server_socket)
+                if send_type == 1:  # Send in chunks
+                    send_file(name=self.server_name, ip=self.server_socket.getpeername()[0],
+                              sock=self.server_socket, cipher=self.cipher)
+                elif send_type == 2:  # Send in bulk (as a whole)
+                    send_file_bulk(name=self.server_name, ip=self.server_socket.getpeername()[0],
+                                   sock=self.server_socket, cipher=self.cipher)
+                self.fd_list.append(self.server_socket)
 
         def terminate_application():
             close_application(self)

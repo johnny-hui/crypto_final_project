@@ -7,7 +7,6 @@ INVALID_SRC_PORT_RANGE = ("[+] INIT ERROR: The value provided for source port (-
                           "valid: (not between 1 and 65535)")
 INVALID_FORMAT_SRC_PORT_ARG_ERROR = "[+] INIT ERROR: Invalid format provided for the source port (-p option): {}"
 
-
 # CIPHER CONFIG CONSTANTS
 BLOCK_SIZE = 16  # 16 bytes
 ROUNDS = 16
@@ -17,7 +16,6 @@ DEFAULT_ROUND_KEYS = [
 ]
 ECB = "ecb"
 CBC = "cbc"
-
 
 # CIPHER INIT CONSTANTS
 CIPHER_INIT_MSG = "[+] Initializing cipher..."
@@ -30,18 +28,15 @@ CIPHER_INIT_CONFIG_ATTRIBUTES = [
 ]
 GET_SUBKEY_USER_PROMPT = "[+] Enter 1 (to provide own sub-keys); Enter 2 (to use default sub-keys)"
 
-
 # SERVER/CLIENT INIT CONSTANTS
 INIT_SERVER_MSG = "[+] Now initializing the server..."
 INIT_CLIENT_MSG = "[+] Now initializing the client..."
 INIT_SUCCESS_MSG = "[+] Initialization Successful!"
 
-
 # MODE CONSTANTS
 MODE_SERVER = "SERVER"
 MODE_CLIENT = "CLIENT"
 MODE_PLAYGROUND = "PLAYGROUND"
-
 
 # CIPHER PLAYGROUND CONSTANTS
 PLAYGROUND_MIN_MENU_ITEM_VALUE = 1
@@ -66,12 +61,11 @@ INVALID_INPUT_MENU_ERROR = "[+] ERROR: Invalid input was provided to menu: {}"
 PENDING_OP_TITLE = "Pending Operations (Decryption)"
 PENDING_OP_COLUMNS = ["Format", "Mode", "Encrypted Payload", "Initialization Vector (IV)"]
 FORMAT_USER_INPUT = "USER_INPUT"
-FORMAT_FILE = "FILE"   # => Path to file
+FORMAT_FILE = "FILE"  # => Path to file
 FORMAT_PICTURE = "PICTURE"  # => Path to file
 FORMAT_AVALANCHE = "AVALANCHE"
 FORMAT_STRING = "STRING"
 FORMAT_BYTES = "BYTES"
-
 
 # CLIENT/SERVER MENU CONSTANTS
 CLIENT_MIN_MENU_ITEM_VALUE = 1
@@ -111,7 +105,6 @@ SELECT_ONE_SECOND_TIMEOUT = 1
 CIPHER_MODE_PROMPT = "[+] CHANGE CIPHER MODE: Enter 1 - CBC; Enter 2 - ECB; (or Enter 0 to quit) "
 ACK = "ACK"
 
-
 # USER MENU - REGENERATE SUBKEYS CONSTANTS
 REGENERATE_SUBKEY_OPTIONS_PROMPT = ("[+] Enter 1 to enter own main key; Enter 2 to generate main key from "
                                     "an elliptic curve (brainpoolP256r1); (or Enter 0 to quit) ")
@@ -123,7 +116,6 @@ REGENERATE_SUBKEY_OPTIONS = [
     "[+] Enter 2 - Use Default Subkeys",
     "[+] Enter 3 - Provide Own Subkeys",
 ]
-
 
 # USER MENU - ENCRYPTION CONSTANTS
 USER_ENCRYPT_OPTIONS_PROMPT = "[+] Please select an option for encryption: "
@@ -137,7 +129,6 @@ USER_ENCRYPT_INPUT_PROMPT = "[+] Please enter a plaintext string to encrypt: "
 USER_ENCRYPT_FILE_PATH_PROMPT = "[+] Please enter the path of the text file to encrypt: "
 USER_ENCRYPT_IMAGE_PATH_PROMPT = "[+] Please enter the path of the image file to encrypt: "
 
-
 # USER MENU - DECRYPTION CONSTANTS
 USER_DECRYPT_OPTIONS_PROMPT = "[+] Please select an option for decryption: "
 USER_DECRYPT_OPTIONS = [
@@ -146,7 +137,6 @@ USER_DECRYPT_OPTIONS = [
     "[+] Enter 2 - Decrypt a Text File",
     "[+] Enter 3 - Decrypt a Picture (Bitmap only)"
 ]
-
 
 # AVALANCHE ANALYSIS CONSTANTS
 AVALANCHE_ANALYSIS_SPAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own plaintext message (128-bit or "
@@ -171,7 +161,6 @@ GRAPH_LABEL_SKAC = ["1 Bit Change in Key", "2 Bit Change in Key", "3 Bit Change 
                     "10 Bit Change in Key"]
 SAVE_GRAPH_DIR = "data/graphs/{}"
 
-
 # CONNECTION INFO CONSTANTS
 CONNECTION_INFO_TITLE = "Current Connections"
 CONNECTION_INFO_FIELD_NAME = "Name"
@@ -180,17 +169,17 @@ CONNECTION_INFO_FIELD_CIPHER_MODE = "Encryption Mode"
 CONNECTION_INFO_FIELD_SECRET = "Shared Secret"
 CONNECTION_INFO_FIELD_IV = "Initialization Vector (IV)"
 
-
 # SEND MESSAGE CONSTANTS
 SELECT_CLIENT_SEND_MSG_PROMPT = "\n[+] Select a specific client to send a message to (enter a number from {} to {}): "
 
-
 # TRANSFER FILE CONSTANTS
+SEND_FILE_MODE_PROMPT = ("[+] SEND FILE: Enter 1 to send in chunks; Enter 2 to send in bulk (as whole);"
+                         " or (Enter 0 to quit): ")
 SELECT_CLIENT_SEND_FILE_PROMPT = "\n[+] Select a specific client to transfer a file to (enter a number from {} to {}): "
 TRANSFER_FILE_PATH_PROMPT = "[+] Please enter the path of the file to transfer: "
 FILE_TRANSFER_SIGNAL = "FILE TRANSFER"
+FILE_TRANSFER_BULK_SIGNAL = "FILE TRANSFER BULK"
 END_OF_FILE = "EOF"
-
 
 # OTHER CONSTANTS
 OP_ENCRYPT = "ENCRYPTION"

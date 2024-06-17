@@ -187,6 +187,7 @@ def get_user_command_option(opt_range: tuple, msg: str):
         A string representing the message (prompt) to be printed
 
     @return: command
+        An integer for the command option to be executed
     """
     while True:
         try:
