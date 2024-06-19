@@ -514,7 +514,7 @@ def read_text_file(file_path: str):
             with open(file_path, 'rb') as file:
                 return file.read()
         else:
-            print(f"[+] ERROR: The file path and type provided is not supported! ({file_path})")
+            print(f"[+] TEXT FILE ERROR: The file path and type provided is not supported! ({file_path})")
             return None
     except FileNotFoundError:
         print("[+] READ FILE ERROR: File not found in the path provided ({})".format(file_path))
@@ -542,6 +542,26 @@ def write_to_file(file_path: str, data: bytes):
         return None
 
 
+def is_bitmap(img_path: str):
+    """
+    Opens the image file and checks if it
+    is in bitmap (.bmp) format.
+
+    @param img_path:
+        A string containing the path to the bitmap
+        image
+
+    @return: Boolean (T/F)
+        True if the image is in bitmap, False otherwise
+    """
+    try:
+        with open(img_path, 'rb') as file:
+            header = file.read(2)
+            return header == b'BM'
+    except (FileNotFoundError, IsADirectoryError):
+        print(f"[+] IMAGE FILE ERROR: The image not found in path provided ({img_path})")
+
+
 def read_image(file_path: str):
     """
     Opens the image file, validates if it is a
@@ -554,21 +574,6 @@ def read_image(file_path: str):
     @return: (header, data)
         The header of the .bmp image and data (Bytes)
     """
-    def is_bitmap(img_path: str):
-        """
-        Opens the image file and checks if it
-        is in bitmap (.bmp) format.
-
-        @param img_path:
-            A string containing the path to the bitmap
-            image
-
-        @return: Boolean (T/F)
-            True if the image is in bitmap, False otherwise
-        """
-        with open(img_path, 'rb') as file:
-            header = file.read(2)
-            return header == b'BM'
     try:
         if is_bitmap(file_path):
             with open(file_path, 'rb') as f:
@@ -577,7 +582,7 @@ def read_image(file_path: str):
             return header, data
         print("[+] IMAGE FILE ERROR: The image provided is not in bitmap (.bmp) format!")
         return None, None
-    except FileNotFoundError:
+    except (FileNotFoundError, IsADirectoryError):
         print(f"[+] IMAGE FILE ERROR: The image not found in path provided ({file_path})")
         return None, None
 
