@@ -95,9 +95,9 @@ class CustomCipher:
                 shifted_block[i] = ((byte << shift_amount) ^ (byte >> (8 - shift_amount))) & 0xFF
 
             # BYTE-WISE PERMUTATION: Shuffle the byte positions from P-BOX
-            permuted_block = bytearray(shifted_block)
+            permuted_block = bytearray(len(shifted_block))
             for i in range(len(permuted_block)):
-                permuted_block[i] = shifted_block[P_BOX[i]]
+                permuted_block[i] = shifted_block[P_BOX[i % len(P_BOX)] % len(shifted_block)]
 
             return bytes(permuted_block)
 

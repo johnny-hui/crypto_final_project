@@ -541,7 +541,13 @@ def receive_data(self: object, sock: socket.socket, is_server: bool = False):
 
 def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
-    Sends a file to the target host (in chunks).
+    Sends a file to the target host (in chunks) using
+    a custom PSH(Send)/ACK protocol.
+
+    @attention Chunk Size
+        The chunk size is 1024 bytes; therefore,
+        the sending host is sending 1024/16 = 64 blocks
+        per chunk.
 
     @param name:
         A string representing the name of
@@ -596,11 +602,10 @@ def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
             # Wait for ACK before proceeding
             sock.recv(1024)
 
-            # LOOP: Encrypt and send blocks in 4096 byte chunks, wait for ACK before proceeding
+            # LOOP: Encrypt and send blocks in 1024 byte chunks, wait for ACK before proceeding
             blocks_sent = 0
             while True:
-                chunk = file.read(4096)
-
+                chunk = file.read(1024)
                 if not chunk:  # => End of file (EOF)
                     break
 
@@ -625,7 +630,13 @@ def send_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
 
 def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     """
-    Receives a file from an initiating host (in chunks).
+    Receives a file from an initiating host (in chunks)
+    using a custom PSH(Send)/ACK protocol.
+
+    @attention Chunk Size:
+        The chunk size is 1024 bytes; therefore,
+        the receiving host is getting 1024/16 = 64 blocks
+        per chunk.
 
     @param name:
         A string representing the name of the
@@ -671,11 +682,11 @@ def receive_file(name: str, ip: str, sock: socket.socket, cipher: CustomCipher):
     # Define a new file path for the received file
     new_save_path = os.path.join(SAVE_FILE_DIR.format(ip), file_name)
 
-    # LOOP: Receive and decrypt blocks in 4096 byte chunks, write to file, and send ACK
+    # LOOP: Receive and decrypt blocks in 1024 byte chunks, write to file, and send ACK
     blocks_received = 0
     with open(new_save_path, 'wb') as file:
         while True:
-            encrypted_chunk = sock.recv(4096)
+            encrypted_chunk = sock.recv(1024)
             decrypted_chunk = cipher.decrypt(ciphertext=encrypted_chunk,
                                              format=FORMAT_FILE,  # => Return as bytes
                                              verbose=False)
