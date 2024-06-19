@@ -13,7 +13,7 @@ from utility.constants import OP_DECRYPT, OP_ENCRYPT, NO_SUBKEYS_ENCRYPT_MSG, \
     USER_ENCRYPT_OPTIONS, USER_ENCRYPT_INPUT_PROMPT, FORMAT_USER_INPUT, PENDING_OP_TITLE, PENDING_OP_COLUMNS, \
     USER_DECRYPT_OPTIONS_PROMPT, USER_DECRYPT_OPTIONS, FORMAT_FILE, FORMAT_PICTURE, \
     USER_ENCRYPT_FILE_PATH_PROMPT, CIPHER_INIT_CONFIG_ATTRIBUTES, USER_ENCRYPT_IMAGE_PATH_PROMPT, \
-    REGENERATE_SUBKEY_OPTIONS_PROMPT
+    REGENERATE_SUBKEY_OPTIONS_PROMPT, FORMAT_TEXT
 from utility.ec_keys_utils import generate_shared_secret
 
 
@@ -121,17 +121,17 @@ def encrypt_block(self: object, block: bytes, avalanche=False):
     # Add initial block for verbose mode
     round_data = [block] if avalanche else None
 
-    # Split block into two halves
+    # Split block into two halves (64-bits each)
     half_length = len(block) // 2
     left_half, right_half = block[:half_length], block[half_length:]
 
     # Apply per round encryption
-    for subkey in self.sub_keys:
+    for i, subkey in enumerate(self.sub_keys):
         temp = left_half
         left_half = right_half
 
         # XOR the result of round function and left half (converted to ASCII values)
-        right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey))])
+        right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey, round_num=i+1))])
 
         if avalanche:  # Add intermediate cipher blocks (if verbose)
             round_data.append(left_half + right_half)
@@ -164,14 +164,16 @@ def decrypt_block(self: object, block: bytes):
     left_half, right_half = block[:half_length], block[half_length:]
 
     # Apply per round decryption
+    counter = self.block_size
     for subkey in reversed(self.sub_keys):
         temp = left_half
         left_half = right_half
 
         # XOR the result of round function and left half (converted to ASCII values)
-        right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey))])
+        right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey, round_num=counter))])
+        counter -= 1
 
-    # Concatenate the two halves
+    # Swap halves for final plaintext
     return right_half + left_half
 
 
@@ -812,7 +814,7 @@ def _perform_text_file_operation(CipherPlayground: object, cipher: object, opera
         plaintext_bytes = read_file(file_path)
         if plaintext_bytes is not None:
             ciphertext = cipher.encrypt(plaintext_bytes, playground=True, format=FORMAT_FILE)
-            new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_FILE)
+            new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_TEXT)
             save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_FILE, payload=new_save_path)
             write_to_file(new_save_path, ciphertext)
 
@@ -824,7 +826,7 @@ def _perform_text_file_operation(CipherPlayground: object, cipher: object, opera
             if cipher.mode.lower() == CBC:
                 cipher.iv = iv
             decrypted_bytes = cipher.decrypt(ciphertext_bytes, playground=True, format=FORMAT_FILE)
-            new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_FILE)
+            new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_TEXT)
             write_to_file(new_save_path, decrypted_bytes)
             del CipherPlayground.pending_operations[FORMAT_FILE]
 

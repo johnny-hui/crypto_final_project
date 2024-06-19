@@ -47,7 +47,7 @@ def derive_shared_secret(pvt_key: int, pub_key):
     """
     Derives the shared secret between a private key
     and another host's public key by performing ECC point
-    multiplication
+    multiplication.
 
     @param pvt_key:
         An owning host's private key
@@ -56,7 +56,8 @@ def derive_shared_secret(pvt_key: int, pub_key):
         The other host's public key
 
     @return: shared_secret
-        A SHA256-hashed result of the shared_key
+        A 16-byte shared key derived from the 'brainpoolP256r1'
+        elliptic curve and then hashed using SHA3-256.
     """
     # EC point multiplication with private and public key
     shared_key = pvt_key * pub_key
@@ -65,7 +66,7 @@ def derive_shared_secret(pvt_key: int, pub_key):
     shared_key_bytes = shared_key.x.to_bytes((shared_key.x.bit_length() + 7) // 8, 'big')
 
     # Compress the key by taking only the first 16-bytes of the SHA256 hash
-    shared_key_hash = hashlib.sha256(shared_key_bytes).digest()
+    shared_key_hash = hashlib.sha3_256(shared_key_bytes).digest()
     return shared_key_hash[:BLOCK_SIZE]
 
 

@@ -43,7 +43,7 @@ def encrypt(cipher: CustomCipher, plain_text: str | bytes, format=None, verbose=
 
     @param format:
         A string denoting the format of the encryption
-        (FILE, TEXT, STRING, etc)
+        (FILE, TEXT, STRING, etc.)
 
     @param verbose:
         A boolean indicating to turn on verbose mode
@@ -344,7 +344,7 @@ def connect_to_server(self: object):
         print(f"[+] KEY EXCHANGE SUCCESS: A shared secret has been derived for the current "
               f"session ({self.shared_secret}) | Number of Bytes = {len(shared_secret)}")
 
-        # Derive CustomCipher Object (and save IV there)
+        # Instantiate CustomCipher Object (if CBC, save IV in it)
         if self.cipher_mode == CBC:
             self.cipher = CustomCipher(key=shared_secret, mode=self.cipher_mode, iv=iv)
         else:
@@ -384,7 +384,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     """
     client_iv = None
     client_socket, client_address = own_sock.accept()
-    print(f"[+] NEW CONNECTION: Accepted a client connection from ({client_address[0]}, {client_address[1]})")
+    print(f"[+] NEW CONNECTION: Accepted a client connection from ({client_address[0]}, {client_address[1]})!")
 
     # Receive cipher mode from client
     mode = client_socket.recv(1024).decode()
@@ -405,7 +405,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     print(f"[+] KEY EXCHANGE SUCCESS: A shared secret has been derived for the current "
           f"session ({compressed_shared_secret}) | Number of Bytes = {len(shared_secret)}")
 
-    # Derive CustomCipher Object (according to mode)
+    # Instantiate CustomCipher Object (if CBC, save IV in it)
     if mode == CBC:
         cipher = CustomCipher(key=shared_secret, mode=mode, iv=client_iv)
     else:

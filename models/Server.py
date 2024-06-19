@@ -45,17 +45,6 @@ class Server:
         self.terminate = False
         print(INIT_SUCCESS_MSG)
 
-    def __start_user_menu_thread(self):
-        """
-        Starts a thread for handling user input
-        for the menu.
-
-        @return: None
-        """
-        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
-        input_thread.start()
-        print(USER_INPUT_START_MSG)
-
     def start(self):
         """
         Starts the server and monitors any incoming connections
@@ -75,6 +64,17 @@ class Server:
                     print(INPUT_PROMPT)
                 else:
                     receive_data(self, sock, is_server=True)
+
+    def __start_user_menu_thread(self):
+        """
+        Starts a thread for handling user input
+        for the menu.
+
+        @return: None
+        """
+        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
+        input_thread.start()
+        print(USER_INPUT_START_MSG)
 
     def __menu(self):
         """

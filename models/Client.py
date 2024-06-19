@@ -68,17 +68,6 @@ class Client:
                 if fd is self.server_socket:
                     receive_data(self, fd)
 
-    def __start_user_menu_thread(self):
-        """
-        Starts a thread for handling user input
-        for the menu.
-
-        @return: None
-        """
-        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
-        input_thread.start()
-        print(USER_INPUT_START_MSG)
-
     def __menu(self):
         """
         Displays the menu and handles user input
@@ -99,6 +88,17 @@ class Client:
                 if fd == sys.stdin:
                     command = get_user_menu_option(fd, CLIENT_MIN_MENU_ITEM_VALUE, CLIENT_MAX_MENU_ITEM_VALUE)
                     self.__handle_command(command)
+
+    def __start_user_menu_thread(self):
+        """
+        Starts a thread for handling user input
+        for the menu.
+
+        @return: None
+        """
+        input_thread = threading.Thread(target=self.__menu, name=USER_INPUT_THREAD_NAME)
+        input_thread.start()
+        print(USER_INPUT_START_MSG)
 
     def __handle_command(self, command: int):
         """

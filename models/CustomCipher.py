@@ -5,7 +5,7 @@ from utility.cipher_utils import (pad_block, encrypt_block, decrypt_block,
                                   is_sub_keys_generated)
 from utility.constants import (CIPHER_INIT_MSG, ROUNDS, BLOCK_SIZE, DEFAULT_ROUND_KEYS,
                                OP_ENCRYPT, OP_DECRYPT, INIT_SUCCESS_MSG, FORMAT_FILE,
-                               FORMAT_PICTURE, FORMAT_AVALANCHE, ECB, CBC)
+                               FORMAT_PICTURE, FORMAT_AVALANCHE, ECB, CBC, S_BOX)
 
 
 class CustomCipher:
@@ -36,61 +36,84 @@ class CustomCipher:
         print(INIT_SUCCESS_MSG)
         print('=' * 160)
 
-    def round_function(self, right_block: bytes, key: bytes):
+    def round_function(self, right_block: bytes, key: bytes, round_num: int):
         """
-        A basic round function that involves substitution
-        and permutation of the right block, followed by an
-        XOR operation with the key.
+        Transforms the right block (8 bytes) by substituting the
+        bytes with bytes from a pre-defined S-Box and then performing
+        permutation through bit shifting and changing the byte order.
 
         @param right_block:
-            A string containing the right block
+            An array of bytes containing the right block
 
         @param key:
-            A string representing the subkey
+            An array of bytes representing the subkey
+
+        @param round_num:
+            An integer representing the round iteration
 
         @return: result
-            A string representing the transformed right block
+            An 8-byte transformed right block
         """
-        # TODO: Incorporate round number to this function
         def substitute(byte: int):
             """
-            Substitution of a character(byte) of the right block
-            by taking ASCII value modulo 256.
+            Substitution of a byte in the right block
+            by performing an S-box lookup based on the
+            byte's value and the round number.
 
             @param byte:
-                A string containing a single character (8-bits)
+                A byte containing 8-bits
 
-            @return: chr(ord(byte) % 256)
-                The substituted character
+            @return: substituted_byte
+                The substituted byte
             """
-            return byte % 256
+            # Ensure byte value is within bounds of GF(2^8)
+            byte = byte % 256
+
+            # Apply S-box substitution based on the byte value and round number
+            substituted_byte = S_BOX[(byte + round_num) % len(S_BOX)]
+            return substituted_byte
 
         def permutation(block: bytes):
             """
-            Permutates the right block by reversing the order.
+            Permutates the right block by performing bit
+            shuffling per byte and byte shuffling.
 
             @param block:
-                A string containing characters (bytes) of
-                the right block
+                A bytes object containing the right block
 
-            @return: block[::-1]
-                The reversed order of the right block
+            @return: shifted block
+                The transformed block
             """
-            return block[::-1]
+            # Define bit-rotation amount and byte position table
+            BIT_SHIFT_BOX = [3, 1, 6, 1, 4, 5, 7, 2]
+            P_BOX = [3, 0, 6, 1, 7, 5, 4, 2]
+
+            # BIT-WISE PERMUTATION: Left & right-bit rotation per byte based on round number and the byte's value
+            shifted_block = bytearray(block)
+            for i, byte in enumerate(shifted_block):
+                shift_amount = BIT_SHIFT_BOX[(round_num + byte) % len(BIT_SHIFT_BOX)]
+                shifted_block[i] = ((byte << shift_amount) ^ (byte >> (8 - shift_amount))) & 0xFF
+
+            # BYTE-WISE PERMUTATION: Shuffle the byte positions from P-BOX
+            permuted_block = bytearray(shifted_block)
+            for i in range(len(permuted_block)):
+                permuted_block[i] = shifted_block[P_BOX[i]]
+
+            return bytes(permuted_block)
 
         # SUBSTITUTION: Each byte of right block
         new_right_block = bytes(substitute(byte) for byte in right_block)
 
-        # PERMUTATION: Reverses the order of bytes
+        # PERMUTATION: Change the order of bits per byte, and the byte position
         new_right_block = permutation(new_right_block)
 
-        # Add the right block + key and take the SHA3-256 hash of the result
+        # Byte-wise addition with the bytes of the right block and key
         result = new_right_block + key
 
         # Take the SHA3-256 hash of the result as final product
         hashed_result = hashlib.sha3_256(result).digest()
 
-        # Take the 23rd and 31st byte of the hash result as the output
+        # Take the 8-bytes between 23rd and 31st byte (as new R block)
         return hashed_result[23:31]
 
     def encrypt(self, plaintext: str | bytes, format=None,
@@ -245,28 +268,42 @@ class CustomCipher:
         per-round basis based on a permutation scheme.
 
         @attention: Permutation Scheme
-            - a) Perform byte rotation with round number and length of the key
-            - b) XOR each byte of the shifted result with the round number
+            - a) Generate a 16-byte IV
+            - b) Add the 16-byte main key with the 16-byte IV (32-bytes)
+            - c) Permutate the 32-bytes using byte positions defined by P-Box
+            - d) Take the transformed 32-byte key and pass it through a SHA3-256 hash
+            - e) From the SHA3-256 hash, take only 16-bytes (from bytes 23 to 31)
 
         @return: None
         """
         print("[+] SUBKEY GENERATION: Now processing sub-keys...")
         print(f"[+] Generating sub-keys from the following main key: {self.key.hex()}")
 
+        def permutate_key(key: bytes, round_number: int):
+            P_BOX = [
+                11, 4, 13, 1, 22, 15, 11, 8,
+                3, 10, 31, 12, 5, 17, 0, 7,
+                1, 14, 8, 27, 6, 2, 29, 15,
+                16, 9, 7, 3, 10, 5, 19, 24
+            ]
+            permuted_key = bytearray(len(key))  # => Empty byte array
+            key_array = bytearray(key)
+            for m in range(len(key)):
+                permuted_key[m] = key_array[P_BOX[((m * round_number) + (round_number * round_number)) % len(P_BOX)]]
+            return bytes(permuted_key)
+
         # Ensure the main key is of sufficient size
         if len(self.key) < self.block_size:
             self.key = (self.key * (self.block_size // len(self.key) + 1))[:self.block_size]
 
         # Round-key generation with a permutation scheme
-        key_bytes = list(self.key)
         for i in range(self.rounds):
-            # a) Byte rotation with round number and length of the key
-            subkey = key_bytes[i % len(self.key):] + key_bytes[:i % len(self.key)]
-
-            # b) XOR each byte of the shifted result with the round number
-            subkey = bytes([byte ^ (i + 1) for byte in subkey])
-            self.sub_keys.append(subkey)
-            print(f"[+] Round {i + 1}: {subkey.hex()}")
+            iv = secrets.token_bytes(self.block_size)
+            combined_key = iv + self.key  # 32-bytes
+            permuted_key = permutate_key(combined_key, round_number=i+1)
+            subkey = hashlib.sha3_256(permuted_key).digest()
+            self.sub_keys.append(subkey[23:31])
+            print(f"[+] Round {i + 1}: {subkey[23:31].hex()}")
 
     def process_subkey_generation(self, menu_option=None):
         """
