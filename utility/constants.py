@@ -179,9 +179,9 @@ USER_DECRYPT_OPTIONS = [
 
 # AVALANCHE ANALYSIS CONSTANTS
 AVALANCHE_ANALYSIS_SPAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own plaintext message (128-bit or "
-                                  "16 char only; Enter 2 to use generated plaintext message; or (Enter 0 to quit): ")
-AVALANCHE_ANALYSIS_SKAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own key (128-bit or 16 char) "
-                                  "only; Enter 2 to use a randomly generated a key (from an Elliptic Curve: "
+                                  "16 char only); Enter 2 to use generated plaintext message; or (Enter 0 to quit): ")
+AVALANCHE_ANALYSIS_SKAC_PROMPT = ("[+] AVALANCHE ANALYSIS: Enter 1 to provide own key (128-bit or 16 char "
+                                  "only); Enter 2 to use a randomly generated a key (from an Elliptic Curve: "
                                   "brainpoolP256r1); or (Enter 0 to quit): ")
 AVALANCHE_ANALYSIS_USER_INPUT_KEY = "[+] Enter a key ({} characters only): "
 AVALANCHE_ANALYSIS_USER_INPUT = "[+] Enter a plaintext message ({} characters only): "

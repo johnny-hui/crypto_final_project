@@ -499,7 +499,7 @@ def print_options(options: list):
     print('=' * 80)
 
 
-def read_file(file_path: str):
+def read_text_file(file_path: str):
     """
     Opens a text file and reads the contents of the file.
 
@@ -510,8 +510,12 @@ def read_file(file_path: str):
         A string containing the contents of the text file (None if error)
     """
     try:
-        with open(file_path, 'rb') as file:
-            return file.read()
+        if file_path.lower().endswith('.txt'):
+            with open(file_path, 'rb') as file:
+                return file.read()
+        else:
+            print(f"[+] ERROR: The file path and type provided is not supported! ({file_path})")
+            return None
     except FileNotFoundError:
         print("[+] READ FILE ERROR: File not found in the path provided ({})".format(file_path))
         return None
@@ -811,16 +815,16 @@ def _perform_text_file_operation(CipherPlayground: object, cipher: object, opera
         file_path = input(USER_ENCRYPT_FILE_PATH_PROMPT)
 
         # Open file, get contents, encrypt and save file to path
-        plaintext_bytes = read_file(file_path)
+        plaintext_bytes = read_text_file(file_path)
         if plaintext_bytes is not None:
             ciphertext = cipher.encrypt(plaintext_bytes, playground=True, format=FORMAT_FILE)
             new_save_path = modify_save_path(file_path, tag="_encrypted.txt", mode=cipher.mode, format=FORMAT_TEXT)
-            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_FILE, payload=new_save_path)
+            save_to_pending_operations(CipherPlayground, cipher, format=FORMAT_TEXT, payload=new_save_path)
             write_to_file(new_save_path, ciphertext)
 
     if operation == OP_DECRYPT:
-        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_FILE]
-        ciphertext_bytes = read_file(file_path)
+        mode, file_path, iv = CipherPlayground.pending_operations[FORMAT_TEXT]
+        ciphertext_bytes = read_text_file(file_path)
 
         if ciphertext_bytes is not None:
             if cipher.mode.lower() == CBC:
@@ -828,7 +832,7 @@ def _perform_text_file_operation(CipherPlayground: object, cipher: object, opera
             decrypted_bytes = cipher.decrypt(ciphertext_bytes, playground=True, format=FORMAT_FILE)
             new_save_path = modify_save_path(file_path, tag="_decrypted.txt", mode=cipher.mode, format=FORMAT_TEXT)
             write_to_file(new_save_path, decrypted_bytes)
-            del CipherPlayground.pending_operations[FORMAT_FILE]
+            del CipherPlayground.pending_operations[FORMAT_TEXT]
 
 
 def __perform_image_operation(CipherPlayground: object, cipher: object, operation: str):

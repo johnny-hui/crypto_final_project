@@ -268,27 +268,41 @@ class CustomCipher:
         per-round basis based on a permutation scheme.
 
         @attention: Permutation Scheme
-            - a) Generate a 16-byte IV
-            - b) Add the 16-byte main key with the 16-byte IV (32-bytes)
-            - c) Permutate the 32-bytes using byte positions defined by P-Box
-            - d) Take the transformed 32-byte key and pass it through a SHA3-256 hash
-            - e) From the SHA3-256 hash, take only 16-bytes (from bytes 23 to 31)
+            - a) Expand the main key from 16 bytes to 32 bytes (Expansive Permutation)
+            - b) Permutate the 32-bytes using byte positions defined by a P-Box
+            - c) Take the transformed 32-byte key and pass it through a SHA3-256 hash
+            - e) From the SHA3-256 hash, take only 16-bytes (from bytes 23 to 31) as round key
+            - f) Take the 32-byte hash and repeat steps b) to e) to generate the other round keys (Snowball Effect)
 
         @return: None
         """
         print("[+] SUBKEY GENERATION: Now processing sub-keys...")
         print(f"[+] Generating sub-keys from the following main key: {self.key.hex()}")
 
-        def permutate_key(key: bytes, round_number: int):
+        def expansion(key: bytes):
+            EP_BOX = [
+                15, 4, 13, 1,
+                5, 11, 2, 8,
+                3, 10, 9, 2,
+                5, 15, 0, 7,
+            ]
+            expanded_key = bytearray(32)  # => Initialize empty bytearray
+            key_array = bytearray(key)  # => 16-byte main key
+            for p in range(32):
+                factor = key_array[p % len(key)]  # => A byte from some position p of the original key
+                expanded_key[p] = key_array[EP_BOX[(p + factor) % len(EP_BOX)]] ^ factor  # => Derive new byte by XOR
+            return bytes(expanded_key)
+
+        def permutate_key(expanded_key: bytes, round_number: int):
             P_BOX = [
                 11, 4, 13, 1, 22, 15, 11, 8,
                 3, 10, 31, 12, 5, 17, 0, 7,
                 1, 14, 8, 27, 6, 2, 29, 15,
                 16, 9, 7, 3, 10, 5, 19, 24
             ]
-            permuted_key = bytearray(len(key))  # => Empty byte array
-            key_array = bytearray(key)
-            for m in range(len(key)):
+            permuted_key = bytearray(len(expanded_key))  # => Initialize empty bytearray
+            key_array = bytearray(expanded_key)  # => 32-byte expanded key
+            for m in range(len(expanded_key)):
                 permuted_key[m] = key_array[P_BOX[((m * round_number) + (round_number * round_number)) % len(P_BOX)]]
             return bytes(permuted_key)
 
@@ -296,37 +310,36 @@ class CustomCipher:
         if len(self.key) < self.block_size:
             self.key = (self.key * (self.block_size // len(self.key) + 1))[:self.block_size]
 
-        # Round-key generation with a permutation scheme
+        # Expand the initial key (from 16 bytes to 32 bytes)
+        initial_key = expansion(self.key)
+
+        # Round-key generation
         for i in range(self.rounds):
-            iv = secrets.token_bytes(self.block_size)
-            combined_key = iv + self.key  # 32-bytes
-            permuted_key = permutate_key(combined_key, round_number=i+1)
-            subkey = hashlib.sha3_256(permuted_key).digest()
-            self.sub_keys.append(subkey[23:31])
-            print(f"[+] Round {i + 1}: {subkey[23:31].hex()}")
+            permuted_key = permutate_key(initial_key, round_number=i+1)
+            initial_key = hashlib.sha3_256(permuted_key).digest()
+            self.sub_keys.append(initial_key[23:31])
+            print(f"[+] Round {i + 1}: {initial_key[23:31].hex()}")
 
     def process_subkey_generation(self, menu_option=None):
         """
-        Generates sub-keys from a main key if the subkey_flag
-        is set to True; otherwise, prompts the user to use default
-        sub-keys or provide their own sub-keys.
+        Generates sub-keys in various ways based on
+        user command from the Cipher Playground.
 
         @attention Main Key (Type Requirement)
             The main key must be in bytes[]
 
         @attention Use Case
-            Used by the UserViewModel when user
+            Used in Cipher Playground when user
             'regenerate sub-keys'.
 
         @param menu_option:
             An optional parameter used when function
-            is called by UserMenu class (default=None)
+            is called by CipherPlayground class (default=None)
 
         @return: None
         """
-        # a) Generate subkey if called by UserViewModel (user menu)
         if menu_option is not None:
-            self.sub_keys.clear()  # Clear existing sub-keys
+            self.sub_keys.clear()
             if menu_option == 1:
                 self.__generate_subkeys()
             if menu_option == 2:
