@@ -130,7 +130,7 @@ def encrypt_block(self: object, block: bytes, avalanche=False):
         temp = left_half
         left_half = right_half
 
-        # XOR the result of round function and left half (converted to ASCII values)
+        # XOR the result of round function and left half together
         right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey, round_num=i+1))])
 
         if avalanche:  # Add intermediate cipher blocks (if verbose)
@@ -169,7 +169,7 @@ def decrypt_block(self: object, block: bytes):
         temp = left_half
         left_half = right_half
 
-        # XOR the result of round function and left half (converted to ASCII values)
+        # XOR the result of round function and left half together
         right_half = bytes([a ^ b for a, b in zip(temp, self.round_function(right_half, subkey, round_num=counter))])
         counter -= 1
 
@@ -276,7 +276,7 @@ def make_table(title: str, columns: list[str], content: list):
     return table
 
 
-# ============================== CIPHER PLAYGROUND FUNCTIONS ==============================
+# ============================== // CIPHER PLAYGROUND FUNCTIONS // ==============================
 def get_user_menu_option(fd: TextIO, min_num_options: int, max_num_options: int):
     """
     Gets the user selection for the menu.

@@ -98,7 +98,6 @@ class CustomCipher:
             permuted_block = bytearray(len(shifted_block))
             for i in range(len(permuted_block)):
                 permuted_block[i] = shifted_block[P_BOX[i % len(P_BOX)] % len(shifted_block)]
-
             return bytes(permuted_block)
 
         # SUBSTITUTION: Each byte of right block

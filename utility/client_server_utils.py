@@ -399,7 +399,7 @@ def accept_new_connection_handler(self: object, own_sock: socket.socket):
     client_pub_key = exchange_public_keys(self.pub_key, client_socket, mode=MODE_SERVER)
     print(f"[+] PUBLIC KEY RECEIVED: Successfully received the client's public key ({compress(client_pub_key)})")
 
-    # Derive the shared secret and compress for AES
+    # Derive the shared secret
     shared_secret = derive_shared_secret(self.pvt_key, client_pub_key)  # In bytes
     compressed_shared_secret = shared_secret.hex()
     print(f"[+] KEY EXCHANGE SUCCESS: A shared secret has been derived for the current "

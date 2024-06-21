@@ -168,8 +168,9 @@ class Client:
 
     def __change_cipher_mode(self):
         """
-        This function allows the server to change
-        to a specific cipher mode.
+        This function allows the client to change to a
+        specific cipher mode (similar to cipher suite).
+
         @return: None
         """
         print(f"[+] CURRENT CIPHER MODE: {self.cipher_mode.upper()}")

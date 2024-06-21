@@ -7,7 +7,6 @@ and managing EC (elliptic curve) keys.
 import hashlib
 import secrets
 from tinyec import registry
-from tinyec.ec import Inf
 from utility.constants import BLOCK_SIZE, MODE_PLAYGROUND, MODE_SERVER, MODE_CLIENT
 
 
@@ -24,23 +23,6 @@ def compress(key):
         A compressed key represented as a hex string
     """
     return hex(key.x) + hex(key.y % 2)[2:]
-
-
-def compress_shared_secret(shared_secret: Inf):
-    """
-    Compresses the shared secret (derived from ECDH key exchange)
-    into 32 bytes (256 bits) suitable for AES using SHA-256.
-
-    @param shared_secret:
-        An Inf object that represents the shared secret
-
-    @return: compressed_key
-        A SHA256 hash of the shared secret (32 Bytes)
-    """
-    # Serialize the coordinates of the shared secret (x, y) into bytes
-    serialized_secret_key = shared_secret.x.to_bytes(32, 'big') + shared_secret.y.to_bytes(32, 'big')
-    compressed_key = hashlib.sha256(serialized_secret_key).digest()
-    return compressed_key
 
 
 def derive_shared_secret(pvt_key: int, pub_key):
@@ -73,7 +55,7 @@ def derive_shared_secret(pvt_key: int, pub_key):
 def generate_keys(mode: str):
     """
     Generates a public/private key pair using
-    the brainpool256r1 elliptic curve.
+    the brainpoolP256r1 elliptic curve.
 
     @param mode:
         A string that declares whether calling class is
